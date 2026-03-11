@@ -1,0 +1,16 @@
+# UV files
+.venv/
+
+# Data files
+data/raw/
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+.pytest_cache/
+
+# IDE folders
+.vscode/
+.idea/
