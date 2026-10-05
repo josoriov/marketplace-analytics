@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: >-
+      Bronze Olist CSVs loaded by Python. Headers and database types are parsed;
+      source strings and review/payment records are retained. Original CSVs
+      remain the landing source. No dbt seeds replace ingestion.
+    tables:
+      - name: orders
+        description: Order statuses and timestamps; all statuses are retained.
+      - name: order_items
+        description: One source item per order_id/order_item_id; price excludes freight.
+      - name: order_payments
+        description: Payment components, including multiple payments per order.
+      - name: order_reviews
+        description: Reviews; review_id is not globally unique. Keep all valid records.
+      - name: customers
+        description: Customer IDs, stable customer identities, and geography.
+      - name: products
+        description: Product categories and physical attributes with original spelling.
+      - name: sellers
+        description: Seller identities and geography.
+      - name: category_translation
+        description: Optional Portuguese to English category labels.
+      - name: geolocation
+        description: Postal coordinates; ingested but unused by current business models.

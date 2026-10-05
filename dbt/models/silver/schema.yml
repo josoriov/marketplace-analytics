@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: category_translation
+    description: >-
+      One row per trimmed nonblank Portuguese label. Choose the lexically first
+      nonblank English label so duplicate mappings cannot multiply products.
+    columns:
+      - name: product_category_name
+        data_tests: [not_null, unique]
+  - name: orders
+    description: >-
+      Trim order/customer identifiers and retain all statuses/timestamps.
+      Exclude blank order IDs; duplicate order IDs fail rather than silently
+      choosing a conflicting status or delivery outcome.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+  - name: order_items
+    description: >-
+      Trim item identifiers; retain monetary values and unmatched dimensions.
+      Duplicate order/item keys fail to prevent inflated revenue.
+    data_tests:
+      - unique_columns:
+          arguments:
+            columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: order_item_id
+        data_tests: [not_null]
+      - name: price
+        data_tests:
+          - between:
+              arguments: {minimum: 0}
+      - name: freight_value
+        data_tests:
+          - between:
+              arguments: {minimum: 0}
+  - name: order_review_summary
+    description: >-
+      One row per order_id; average every non-null review score before item joins.
+      Multiple reviews and repeated review IDs are valid and are not deduplicated.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: avg_review_score
+        data_tests:
+          - between:
+              arguments: {minimum: 1, maximum: 5}
+  - name: order_payment_summary
+    description: One row per order_id, summing all payment components without deduplication.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: total_payment_value
+        data_tests:
+          - between:
+              arguments: {minimum: 0}
+  - name: order_item_summary
+    description: One row per order_id with full item revenue and freight, for geography tickets.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]

@@ -1,0 +1,109 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: One row per trimmed customer_id; choose the first identity/city/state tuple, NULLs last.
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+  - name: dim_sellers
+    description: One row per trimmed seller_id; choose the first city/state tuple, NULLs last.
+    columns:
+      - name: seller_id
+        data_tests: [not_null, unique]
+  - name: dim_products
+    description: One row per trimmed product_id; prefer English categories, then source labels. Deduplicate by category and attributes, NULLs last.
+    columns:
+      - name: product_id
+        data_tests: [not_null, unique]
+  - name: fact_orders
+    description: >-
+      One row per order, including every status and an order-level review mean.
+      Delay is signed fractional days; delivery KPIs require delivered status
+      and both actual/estimated timestamps.
+    data_tests: [nonempty]
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: has_delivery_outcome
+        description: Eligibility flag for delivery rates and average delays.
+      - name: avg_review_score
+        data_tests:
+          - between:
+              arguments: {minimum: 1, maximum: 5}
+  - name: fact_order_items
+    description: >-
+      One row per order_id/order_item_id, all statuses retained. Payment totals
+      repeat on each order item and must not be summed across item rows.
+    data_tests:
+      - nonempty
+      - unique_columns:
+          arguments:
+            columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        data_tests: [not_null]
+      - name: order_item_id
+        data_tests: [not_null]
+      - name: order_total_payment_value
+        description: Whole-order payment total, repeated at item grain; nullable if no payments.
+  - name: mart_seller_performance
+    description: >-
+      One row per matched seller with delivered items. Order/freight averages use
+      seller/order totals; reviews and delivery are equally weighted per order.
+      Multi-seller order counts are not globally additive.
+    columns:
+      - name: seller_id
+        data_tests: [not_null, unique]
+      - name: total_revenue
+        description: Delivered item prices excluding freight and unmatched sellers.
+        data_tests:
+          - between:
+              arguments: {minimum: 0}
+      - name: avg_review_score
+        data_tests:
+          - between:
+              arguments: {minimum: 1, maximum: 5}
+      - name: late_delivery_rate
+        description: Late eligible orders / eligible orders; NULL when no outcomes exist.
+        data_tests:
+          - between:
+              arguments: {minimum: 0, maximum: 1}
+  - name: mart_category_performance
+    description: >-
+      One row per category with delivered items, including unknown for missing
+      products/categories. Prices are item-weighted; reviews and delivery are
+      order-weighted within the category. Category order counts are not additive.
+    columns:
+      - name: product_category
+        data_tests: [not_null, unique]
+      - name: total_revenue
+        data_tests:
+          - between:
+              arguments: {minimum: 0}
+      - name: avg_review_score
+        data_tests:
+          - between:
+              arguments: {minimum: 1, maximum: 5}
+      - name: late_delivery_rate
+        data_tests:
+          - between:
+              arguments: {minimum: 0, maximum: 1}
+  - name: mart_geography_sales
+    description: >-
+      One row per matched customer state/city with delivered items. Ticket is the
+      mean full-order price plus freight; review means are order-weighted.
+      Missing city/state values form nullable groups, not unmatched customers.
+    data_tests:
+      - unique_columns:
+          arguments:
+            columns: [customer_state, customer_city]
+    columns:
+      - name: total_revenue
+        data_tests:
+          - between:
+              arguments: {minimum: 0}
+      - name: avg_review_score
+        data_tests:
+          - between:
+              arguments: {minimum: 1, maximum: 5}
