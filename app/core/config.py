@@ -8,7 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy.engine import URL
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = PROJECT_ROOT / ".env"
 
@@ -36,12 +35,7 @@ class Settings:
 
     @property
     def database_url(self) -> str:
-        """Build the SQLAlchemy connection URL for PostgreSQL.
-
-        Returns:
-            str: A SQLAlchemy-compatible PostgreSQL URL including the configured
-                host, port, database name, and credentials.
-        """
+        """Build the SQLAlchemy connection URL for PostgreSQL."""
         return URL.create(
             drivername="postgresql+psycopg2",
             username=self.postgres_user,
@@ -54,31 +48,15 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return a cached settings object built from environment variables.
-    Use `get_settings.cache_clear()` if the environment variables have changes.
-
-    Returns:
-        Settings: The database configuration assembled from the current
-            environment.
-
-    Raises:
-        ValueError: If one or more required environment variables are missing
-            or if ``POSTGRES_PORT`` is not a valid integer.
-
-    Notes:
-        The result is cached for the lifetime of the Python process. Tests that
-        modify environment variables should clear the function cache before
-        calling this again.
-    """
+    """Return a cached settings object built from environment variables."""
     missing_vars = [
         variable_name
         for variable_name in REQUIRED_ENV_VARS
         if os.getenv(variable_name) in (None, "")
     ]
     if missing_vars:
-        # missing_list = ", ".join(missing_vars)
         raise ValueError(
-            f"Missing required environment variables: {missing_vars}"
+            f"Missing required environment variables: {', '.join(missing_vars)}"
         )
 
     postgres_port = os.environ["POSTGRES_PORT"]
