@@ -1,15 +1,15 @@
-CREATE SCHEMA IF NOT EXISTS raw;
+create schema if not exists raw;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_type t
-        JOIN pg_namespace n ON n.oid = t.typnamespace
-        WHERE n.nspname = 'raw'
-          AND t.typname = 'order_status_enum'
-    ) THEN
-        CREATE TYPE raw.order_status_enum AS ENUM (
+do $$
+begin
+    if not exists (
+        select 1
+        from pg_type t
+        join pg_namespace n on n.oid = t.typnamespace
+        where n.nspname = 'raw'
+          and t.typname = 'order_status_enum'
+    ) then
+        create type raw.order_status_enum as enum (
             'unavailable',
             'shipped',
             'approved',
@@ -19,31 +19,31 @@ BEGIN
             'invoiced',
             'created'
         );
-    END IF;
-END
+    end if;
+end
 $$;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_type t
-        JOIN pg_namespace n ON n.oid = t.typnamespace
-        WHERE n.nspname = 'raw'
-          AND t.typname = 'payment_type_enum'
-    ) THEN
-        CREATE TYPE raw.payment_type_enum AS ENUM (
+do $$
+begin
+    if not exists (
+        select 1
+        from pg_type t
+        join pg_namespace n on n.oid = t.typnamespace
+        where n.nspname = 'raw'
+          and t.typname = 'payment_type_enum'
+    ) then
+        create type raw.payment_type_enum as enum (
             'not_defined',
             'boleto',
             'credit_card',
             'voucher',
             'debit_card'
         );
-    END IF;
-END
+    end if;
+end
 $$;
 
-CREATE TABLE IF NOT EXISTS raw.orders (
+create table if not exists raw.orders (
     order_id varchar(32),
     customer_id varchar(32),
     order_status raw.order_status_enum,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS raw.orders (
     order_estimated_delivery_date timestamp
 );
 
-CREATE TABLE IF NOT EXISTS raw.order_items (
+create table if not exists raw.order_items (
     order_id varchar(32),
     order_item_id bigint,
     product_id varchar(32),
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS raw.order_items (
     freight_value numeric(8, 2)
 );
 
-CREATE TABLE IF NOT EXISTS raw.order_payments (
+create table if not exists raw.order_payments (
     order_id varchar(32),
     payment_sequential integer,
     payment_type raw.payment_type_enum,
@@ -72,17 +72,17 @@ CREATE TABLE IF NOT EXISTS raw.order_payments (
     payment_value numeric(8, 2)
 );
 
-CREATE TABLE IF NOT EXISTS raw.order_reviews (
+create table if not exists raw.order_reviews (
     review_id varchar(32),
     order_id varchar(32),
-    review_score smallint CHECK (review_score BETWEEN 1 AND 5),
+    review_score smallint check (review_score between 1 and 5),
     review_creation_date timestamp,
     review_answer_timestamp timestamp,
     review_comment_title varchar,
     review_comment_message varchar
 );
 
-CREATE TABLE IF NOT EXISTS raw.customers (
+create table if not exists raw.customers (
     customer_id varchar(32),
     customer_unique_id varchar(32),
     customer_zip_code_prefix integer,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS raw.customers (
     customer_state varchar(2)
 );
 
-CREATE TABLE IF NOT EXISTS raw.products (
+create table if not exists raw.products (
     product_id varchar(32),
     product_category_name varchar,
     product_name_lenght smallint,
@@ -102,19 +102,19 @@ CREATE TABLE IF NOT EXISTS raw.products (
     product_width_cm integer
 );
 
-CREATE TABLE IF NOT EXISTS raw.sellers (
+create table if not exists raw.sellers (
     seller_id varchar(32),
     seller_zip_code_prefix integer,
     seller_city varchar,
     seller_state varchar(2)
 );
 
-CREATE TABLE IF NOT EXISTS raw.category_translation (
+create table if not exists raw.category_translation (
     product_category_name varchar,
     product_category_name_english varchar
 );
 
-CREATE TABLE IF NOT EXISTS raw.geolocation (
+create table if not exists raw.geolocation (
     geolocation_zip_code_prefix integer,
     geolocation_lat numeric,
     geolocation_lng numeric,
