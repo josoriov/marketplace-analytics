@@ -13,8 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.core.database import run_sql_script, test_connection
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments for database initialization."""
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Apply a SQL script to the configured PostgreSQL database."
     )
@@ -29,12 +28,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip the database connectivity check before applying the script.",
     )
-    return parser.parse_args()
-
-
-def main() -> None:
-    """Run the selected SQL script against the configured database."""
-    args = parse_args()
+    args = parser.parse_args()
 
     if not args.skip_check:
         test_connection()
