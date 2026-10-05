@@ -81,3 +81,9 @@ def test_extract_datasets_fails_fast_when_any_required_file_is_missing(tmp_path)
             ],
             data_dir=tmp_path,
         )
+
+
+def test_extract_rejects_headers_that_normalize_to_the_same_name(tmp_path):
+    (tmp_path / "olist_orders_dataset.csv").write_text("order_id, ORDER_ID \no1,o2\n")
+    with pytest.raises(ValueError, match="duplicate names: order_id"):
+        extract_dataset("olist_orders_dataset.csv", data_dir=tmp_path)

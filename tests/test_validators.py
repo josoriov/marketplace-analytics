@@ -1,26 +1,19 @@
 import polars as pl
-import pytest
 
 from app.etl.config import IngestionConfig
-from app.etl.validators import (
-    ValidationReport,
-    validate_all,
-    validate_dataframe,
-)
+from app.etl.validators import ValidationReport, validate_all, validate_dataframe
 
 
 def _make_config(
     filename: str = "test.csv",
     table: str = "raw.test",
     columns: tuple[str, ...] = ("a", "b"),
-    date_columns: tuple[str, ...] = (),
     pk_columns: tuple[str, ...] = (),
 ) -> IngestionConfig:
     return IngestionConfig(
         csv_filename=filename,
         destination_table=table,
         expected_columns=columns,
-        date_columns=date_columns,
         primary_key_columns=pk_columns,
     )
 
@@ -196,8 +189,6 @@ class TestCheckDateOrdering:
             table="raw.orders",
             columns=("order_id", "order_purchase_timestamp",
                      "order_delivered_customer_date"),
-            date_columns=("order_purchase_timestamp",
-                          "order_delivered_customer_date"),
             pk_columns=("order_id",),
         )
         df = pl.DataFrame({
@@ -219,8 +210,6 @@ class TestCheckDateOrdering:
             table="raw.orders",
             columns=("order_id", "order_purchase_timestamp",
                      "order_delivered_customer_date"),
-            date_columns=("order_purchase_timestamp",
-                          "order_delivered_customer_date"),
             pk_columns=("order_id",),
         )
         df = pl.DataFrame({
@@ -239,8 +228,6 @@ class TestCheckDateOrdering:
             table="raw.orders",
             columns=("order_id", "order_purchase_timestamp",
                      "order_delivered_customer_date"),
-            date_columns=("order_purchase_timestamp",
-                          "order_delivered_customer_date"),
             pk_columns=("order_id",),
         )
         df = pl.DataFrame({

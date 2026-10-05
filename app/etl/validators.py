@@ -5,13 +5,11 @@ from dataclasses import dataclass, field
 
 import polars as pl
 
-from app.etl.config import IngestionConfig, iter_ingestion_configs
-
+from app.etl.config import INGESTION_CONFIGS, IngestionConfig
 
 logger = logging.getLogger(__name__)
 
 
-# ── Result types ─────────────────────────────────────────────────────
 
 @dataclass
 class ValidationIssue:
@@ -39,7 +37,7 @@ class ValidationReport:
 
     @property
     def passed(self) -> bool:
-        return len(self.errors) == 0
+        return not self.errors
 
     def add_error(self, table: str, check: str, message: str) -> None:
         self.issues.append(ValidationIssue(table, check, "error", message))
@@ -62,7 +60,6 @@ class ValidationReport:
             )
 
 
-# ── Domain-specific check configuration ──────────────────────────────
 
 MONETARY_COLUMNS = frozenset({"price", "freight_value", "payment_value"})
 
@@ -79,7 +76,6 @@ BOUNDED_COLUMNS: dict[str, dict[str, tuple[int, int]]] = {
 NULL_THRESHOLD = 0.5
 
 
-# ── Public API ───────────────────────────────────────────────────────
 
 def validate_dataframe(
     df: pl.DataFrame,
@@ -98,10 +94,9 @@ def validate_dataframe(
 def validate_all(datasets: dict[str, pl.DataFrame]) -> ValidationReport:
     """Run validation across every extracted dataset and return a report."""
     report = ValidationReport()
-    configs = {cfg.csv_filename: cfg for cfg in iter_ingestion_configs()}
 
     for filename, df in datasets.items():
-        config = configs.get(filename)
+        config = INGESTION_CONFIGS.get(filename)
         if config is None:
             report.add_warning(
                 "unknown",
@@ -115,7 +110,6 @@ def validate_all(datasets: dict[str, pl.DataFrame]) -> ValidationReport:
     return report
 
 
-# ── Individual checks ────────────────────────────────────────────────
 
 def _check_required_columns(
     df: pl.DataFrame,

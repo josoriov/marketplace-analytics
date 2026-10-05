@@ -1,11 +1,5 @@
-from app.etl.config import (
-    INGESTION_CONFIGS,
-    RAW_DATA_DIR,
-    TABLE_INGESTION_CONFIGS,
-    get_ingestion_config,
-    get_ingestion_config_by_table,
-    iter_ingestion_configs,
-)
+from app.etl.config import INGESTION_CONFIGS
+
 
 
 def test_ingestion_configs_cover_each_raw_dataset() -> None:
@@ -20,7 +14,7 @@ def test_ingestion_configs_cover_each_raw_dataset() -> None:
         "olist_sellers_dataset.csv",
         "product_category_name_translation.csv",
     }
-    assert {config.destination_table for config in iter_ingestion_configs()} == {
+    assert {config.destination_table for config in INGESTION_CONFIGS.values()} == {
         "raw.category_translation",
         "raw.customers",
         "raw.geolocation",
@@ -34,31 +28,14 @@ def test_ingestion_configs_cover_each_raw_dataset() -> None:
 
 
 def test_orders_ingestion_config_contains_expected_metadata() -> None:
-    config = get_ingestion_config("olist_orders_dataset.csv")
+    config = INGESTION_CONFIGS["olist_orders_dataset.csv"]
 
     assert config.destination_table == "raw.orders"
-    assert config.date_columns == (
-        "order_purchase_timestamp",
-        "order_approved_at",
-        "order_delivered_carrier_date",
-        "order_delivered_customer_date",
-        "order_estimated_delivery_date",
-    )
     assert config.primary_key_columns == ("order_id",)
-    assert config.csv_path == RAW_DATA_DIR / "olist_orders_dataset.csv"
 
 
-def test_table_lookup_reuses_the_same_config_objects() -> None:
-    by_file = get_ingestion_config("olist_order_items_dataset.csv")
-    by_table = get_ingestion_config_by_table("raw.order_items")
-
-    assert by_table is by_file
-    assert TABLE_INGESTION_CONFIGS["raw.order_items"].expected_columns == (
-        "order_id",
-        "order_item_id",
-        "product_id",
-        "seller_id",
-        "shipping_limit_date",
-        "price",
-        "freight_value",
+def test_item_config_has_required_columns():
+    assert INGESTION_CONFIGS["olist_order_items_dataset.csv"].expected_columns == (
+        "order_id", "order_item_id", "product_id", "seller_id",
+        "shipping_limit_date", "price", "freight_value",
     )
