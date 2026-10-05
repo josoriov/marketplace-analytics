@@ -1,26 +1,24 @@
-# Start from a slim Python base image to keep the container smaller.
-FROM python:3.12-slim
+FROM docker.io/library/python:3.12-slim-trixie
+COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /usr/local/bin/uv
 
-# Prevent Python from creating `.pyc` bytecode files inside the container.
-ENV PYTHONDONTWRITEBYTECODE=1
-# Force stdout and stderr to flush immediately so logs appear in real time.
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never \
+    DBT_ALLOW_EXPERIMENTAL_ADAPTERS=true \
+    PATH="/opt/venv/bin:$PATH"
 
-# Set the working directory used by all following Docker instructions.
 WORKDIR /app
+COPY pyproject.toml uv.lock ./
+# dbt v2 loads the PostgreSQL client library at runtime.
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall --yes pip \
+    && uv sync --locked --no-cache
 
-# Copy dependency definitions first so Docker can cache the install layer.
-COPY requirements.txt .
-
-# Upgrade `pip` and install the project dependencies without leaving pip cache files behind.
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
-
-# Copy the FastAPI application source code into the image.
 COPY app ./app
-
-# Document that the application listens on port 8000.
+COPY dbt ./dbt
 EXPOSE 8000
-
-# Start the FastAPI app with Uvicorn when the container launches.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -3,3 +3,13 @@
 __pycache__
 *.pyc
 data/raw
+.env
+dbt/.env
+.dev-notes
+.vscode
+.idea
+.pytest_cache
+dbt/target
+dbt/logs
+dbt/dbt_packages
+dbt/.user.yml

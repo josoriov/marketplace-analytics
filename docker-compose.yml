@@ -1,76 +1,37 @@
-# Define the local development services that make up the project stack.
 services:
-  # Run PostgreSQL as the project's database service.
   db:
-    # Use the official Postgres 16 image from Docker Hub.
     image: postgres:16
-    # Pass the initial database settings into the Postgres container.
     environment:
-      # Create this database on first container startup.
       POSTGRES_DB: ${POSTGRES_DB:-marketplace}
-      # Create and use this Postgres user by default.
       POSTGRES_USER: ${POSTGRES_USER:-admin}
-      # Set the password for the Postgres user.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbpassword}
-    # Publish the database port to the host machine.
     ports:
-      # Map the host Postgres port to the container's internal Postgres port.
       - "${POSTGRES_PORT:-5432}:5432"
-    # Persist database files in a named Docker volume.
     volumes:
-      # Mount the named volume at Postgres's data directory.
       - postgres_data:/var/lib/postgresql/data
-    # Only mark the database healthy once it is ready to accept connections.
     healthcheck:
-      # Use `pg_isready` with container env vars to test database readiness.
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      # Run the readiness check every 10 seconds.
       interval: 10s
-      # Fail a single readiness probe if it takes longer than 5 seconds.
       timeout: 5s
-      # Allow up to 5 failed checks before Docker marks the service unhealthy.
       retries: 5
-      # Give Postgres a short startup window before health checks count against it.
       start_period: 10s
 
-  # Run the Python API and ETL service used during local development.
   app:
-    # Build the app image from files in this repository.
-    build:
-      # Send the current repository directory as the Docker build context.
-      context: .
-      # Use the root-level Dockerfile when building the app image.
-      dockerfile: Dockerfile
-    # Wait until the database service is healthy before starting the app.
+    build: .
     depends_on:
-      # Declare the dependency on the `db` service.
       db:
-        # Only start the app after the database healthcheck passes.
         condition: service_healthy
-    # Pass database connection settings into the app container.
     environment:
-      # Use the Docker Compose service name for internal database hostname resolution.
       POSTGRES_HOST: db
-      # Tell the app to connect to Postgres on its default container port.
       POSTGRES_PORT: 5432
-      # Provide the database name expected by the application.
       POSTGRES_DB: ${POSTGRES_DB:-marketplace}
-      # Provide the database username expected by the application.
       POSTGRES_USER: ${POSTGRES_USER:-admin}
-      # Provide the database password expected by the application.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbpassword}
-    # Publish the app port to the host machine.
     ports:
-      # Map the host port to the Uvicorn server running inside the container.
       - "${APP_PORT:-8000}:8000"
-    # Mount the repository into the container so local code changes are reflected immediately.
     volumes:
-      # Bind the project root on the host to `/app` inside the container.
       - .:/app
-    # Override the image command to run the API in auto-reload mode for development.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Declare the named volumes used by the services above.
 volumes:
-  # Store Postgres data outside the container lifecycle.
   postgres_data:
