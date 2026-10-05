@@ -1,206 +1,196 @@
-# Marketplace Seller Analytics API
+# Marketplace Analytics
 
-End-to-end data product that ingests the **Olist Brazilian E-Commerce** dataset,
-transforms it into analytics-ready models inside PostgreSQL, and exposes
-business insights through a FastAPI service.
+Load the [Olist dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
+into PostgreSQL, build analytics views with dbt v2, and run a FastAPI service.
+The API currently provides `/health` and `/docs`; business endpoints are planned
+in [TODO.md](TODO.md).
 
-## Stack
+## How it works
 
-| Layer | Technology |
-|-------|-----------|
-| Database | PostgreSQL 16 |
-| ETL / API | Python 3.12, Polars, SQLAlchemy, FastAPI |
-| Containerisation | Docker & Docker Compose |
-
-## Architecture
-
-```
-data/raw/*.csv
-      │
-      ▼
-┌──────────┐   extract    ┌──────────┐   validate   ┌──────────┐
-│  CSV     │ ──────────►  │  Polars  │ ──────────►  │  Polars  │
-│  files   │              │  DFs     │              │  DFs     │
-└──────────┘              └──────────┘              └─────┬────┘
-                                                         │ load
-                                                         ▼
-                                                  ┌──────────────┐
-                                                  │  PostgreSQL  │
-                                                  │  raw.*       │
-                                                  └──────┬───────┘
-                                                         │ SQL transforms
-                                                         ▼
-                                                  ┌──────────────┐
-                                                  │  analytics.* │
-                                                  │  dims/facts/ │
-                                                  │  marts       │
-                                                  └──────┬───────┘
-                                                         │
-                                                         ▼
-                                                  ┌──────────────┐
-                                                  │  FastAPI     │
-                                                  │  /health     │
-                                                  └──────────────┘
+```text
+CSV files → Python/Polars validation → PostgreSQL raw tables
+                                     → dbt silver views → analytics views
+FastAPI → /health
 ```
 
-The **`db`** container runs PostgreSQL and stores both the raw ingested tables
-and the analytics models.  The **`app`** container runs the Python ETL pipeline
-and the FastAPI server.  Data flows from raw CSVs into `raw.*` tables, then SQL
-views build dimensions (`analytics.dim_*`), facts (`analytics.fact_*`), and
-business marts (`analytics.mart_*`).  The API reads from those transformed
-views so request handling stays fast and predictable.
+Two services: PostgreSQL 16 stores the data; the Python 3.12 app runs ingestion,
+dbt, and FastAPI. uv locks the Python packages and the official dbt v2 binary
+(currently 2.0.6). No separate transformation service or ORM is needed.
 
-## Dataset source
+- `raw`: nine typed source tables. Python normalizes headers and parses numbers;
+  PostgreSQL parses timestamps and validates enums. Source strings and every
+  review/payment record are retained. Keep the original CSVs in `data/raw/`.
+- `silver`: six views clean order/item identifiers, normalize category mappings,
+  and aggregate items, reviews, and payments by order.
+- `analytics`: three cleaned, deterministically deduplicated dimensions, two facts,
+  and three business marts, all views. Order/item duplicates fail dbt tests.
+  Missing dimensions are allowed.
 
-**Brazilian E-Commerce Public Dataset by Olist** — <https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce>
+## Run with Docker Compose
 
-Download the CSVs and place them in `data/raw/`.
+Copy `.env.example` to `.env`, set local credentials, and download these files
+into `data/raw/`:
 
-## Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) and
-  [Docker Compose](https://docs.docker.com/compose/install/) (v2)
-- (Optional, for local development) [uv](https://docs.astral.sh/uv/) — used to manage the Python virtual environment
-
-## Quick start
+```text
+olist_orders_dataset.csv
+olist_order_items_dataset.csv
+olist_order_payments_dataset.csv
+olist_order_reviews_dataset.csv
+olist_customers_dataset.csv
+olist_products_dataset.csv
+olist_sellers_dataset.csv
+product_category_name_translation.csv
+olist_geolocation_dataset.csv
+```
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url> && cd marketplace-analytics
-
-# 2. Place the Olist CSV files inside data/raw/
-ls data/raw/
-# olist_orders_dataset.csv  olist_order_items_dataset.csv  ...
-
-# 3. Build and start all services
+cp .env.example .env                  # Edit credentials before starting.
 docker compose up --build -d
-
-# 4. Run the full ETL pipeline (extract → validate → load → transform → verify)
-docker compose exec app python -m app.etl.pipeline
-
-# 5. Verify the API is running
+docker compose exec app uv run --locked python -m app.etl.pipeline
 curl http://localhost:8000/health
 ```
 
-The API is available at **http://localhost:8000** and the auto-generated
-OpenAPI docs at **http://localhost:8000/docs**.
+Compose connects the app to `db:5432`; host commands use `POSTGRES_HOST` and the
+published `POSTGRES_PORT` in `.env`. Database files persist in `postgres_data`.
+Use `docker compose down` to stop services; adding `-v` deletes the database.
+Python edits reload automatically. Rebuild after dependency or Dockerfile changes.
+The container environment lives in `/opt/venv` so the `/app` bind mount cannot hide it.
 
-### Stopping the services
+## Run locally
 
-```bash
-docker compose down          # stop containers, keep data volume
-docker compose down -v       # stop containers AND delete the database volume
-```
-
-### Rebuilding after code changes
-
-```bash
-docker compose up --build -d
-```
-
-Local code is bind-mounted into the container, so most Python changes are
-picked up automatically by Uvicorn's `--reload` flag.  Only `requirements.txt`
-or `Dockerfile` changes require a rebuild.
-
-## Pipeline steps
-
-| Step | Description |
-|------|-------------|
-| 1 | Test database connectivity |
-| 2 | Apply raw schema (`app/db/schema.sql`) |
-| 3 | Extract CSVs from `data/raw/` into Polars DataFrames |
-| 4 | Validate data quality (column presence, bounds, monetary signs, date logic) |
-| 5 | Load validated data into `raw.*` tables (truncate + insert) |
-| 6 | Create performance indexes (`app/db/indexes.sql`) |
-| 7 | Build analytics views — dimensions, facts, marts (`app/db/marts.sql`) |
-| 8 | Run sanity checks on the analytics layer (`app/db/sanity_checks.sql`) |
-
-## Analytics models
-
-### Dimensions
-
-| View | Grain | Key columns |
-|------|-------|-------------|
-| `analytics.dim_customers` | customer_id | city, state |
-| `analytics.dim_products` | product_id | translated category, size/weight |
-| `analytics.dim_sellers` | seller_id | city, state |
-
-### Facts
-
-| View | Grain | Key columns |
-|------|-------|-------------|
-| `analytics.fact_orders` | order_id | status, timestamps, `delivery_delay_days`, `is_late_delivery` |
-| `analytics.fact_order_items` | order_id + order_item_id | price, freight, `item_total_value` |
-
-### Business marts
-
-| View | Grain | Key metrics |
-|------|-------|-------------|
-| `analytics.mart_seller_performance` | seller_id | revenue, avg review score, late delivery rate |
-| `analytics.mart_category_performance` | product_category | revenue, avg price, late delivery rate |
-| `analytics.mart_geography_sales` | state + city | revenue, avg ticket, avg review score |
-
-## Local development (optional)
-
-If you want to run code outside Docker (e.g. tests, linting):
+Install [uv](https://docs.astral.sh/uv/) and the native PostgreSQL client library
+required by dbt v2 (`libpq.so.5` on Linux). The image already includes it.
 
 ```bash
-# Create and activate a virtual environment with uv
-uv venv
-source .venv/bin/activate
-
-# Install dependencies
-uv pip install -r requirements.txt
+# Debian/Ubuntu:
+sudo apt-get install libpq5
+# Arch/CachyOS:
+sudo pacman -S --needed postgresql-libs
+# macOS:
+brew install libpq
 ```
 
-## Running tests
+For macOS, make Homebrew's libpq library directory available to the dynamic loader
+if it is outside its default search paths. Install PostgreSQL client libraries
+for your platform when using Windows.
 
 ```bash
-# Inside the container
-docker compose exec app python -m pytest tests/ -v
-
-# Or locally with uv
-source .venv/bin/activate
-pytest tests/ -v
+uv sync --locked
+uv run --locked dbt --version        # Must be >=2.0.0; project rejects v1.
+uv run --locked python -m app.etl.pipeline
 ```
 
-## Project structure
+Start PostgreSQL first, using Compose or your own instance. The pipeline checks
+connectivity, applies `app/db/schema.sql`, reads and validates all nine CSVs,
+reloads raw tables, applies `app/db/indexes.sql`, then runs `dbt build`.
+Missing columns, negative money, or invalid review scores stop loading. Duplicate
+keys, reversed delivery dates, sparse columns, and empty CSVs produce warnings.
 
-```
-marketplace-analytics/
-├── app/
-│   ├── main.py              # FastAPI application
-│   ├── core/
-│   │   ├── config.py        # Environment-based settings
-│   │   └── database.py      # SQLAlchemy engine, sessions, SQL runner
-│   ├── db/
-│   │   ├── schema.sql       # Raw table DDL
-│   │   ├── indexes.sql      # Performance indexes
-│   │   ├── marts.sql        # Analytics views (dims, facts, marts)
-│   │   └── sanity_checks.sql# Post-transform validation
-│   └── etl/
-│       ├── config.py        # CSV → table mapping
-│       ├── extract.py       # CSV reader
-│       ├── load.py          # Postgres loader
-│       ├── pipeline.py      # Orchestrator
-│       └── validators.py    # Pre-load data checks
-├── data/raw/                # Olist CSV files (not committed)
-├── tests/
-├── docker-compose.yml
-├── Dockerfile
-└── requirements.txt
+Each table reload is one transaction: a failed insert restores its previous
+contents. Tables commit separately, and dbt commits models separately. A failed
+refresh can leave earlier tables/models updated. Run a successful full build
+before consuming refreshed analytics.
+
+## dbt commands and editor
+
+The wrapper loads the repository `.env`, validates connection settings, and
+runs the dbt v2 binary installed in the active Python environment:
+
+```bash
+uv run --locked python -m app.etl.transform debug
+uv run --locked python -m app.etl.transform build
+uv run --locked python -m app.etl.transform test
+uv run --locked python -m app.etl.transform docs generate
+uv run --locked python -m app.etl.transform docs serve --port 8080
 ```
 
-## Assumptions and trade-offs
+Run the same commands after `docker compose exec app` inside the container.
+For the direct CLI, run from the repository root:
 
-- **Full refresh** — Every pipeline run truncates and reloads all raw tables.
-  Acceptable at interview scale; production would use incremental loads.
-- **Views, not materialized views** — Analytics models are plain views so the
-  schema rebuild is idempotent and instant. For heavier traffic, materializing
-  the marts and refreshing them on a schedule would be the next step.
-- **Revenue = sum of item prices** — `total_revenue` in the marts sums
-  `order_items.price`. Freight is tracked separately.
-- **Late delivery** — An order is late when `delivered_customer_date >
-  estimated_delivery_date`. Orders without both dates are not counted.
-- **PostgreSQL is sufficient** — The dataset fits comfortably in a single
-  Postgres instance; no distributed compute is needed.
+```bash
+uv run --locked dbt build --project-dir dbt --profiles-dir dbt
+```
+
+PostgreSQL is experimental in dbt v2. `.env.example` and the image enable
+`DBT_ALLOW_EXPERIMENTAL_ADAPTERS=true`. The profile uses environment variables;
+exported values override `.env`. Schemas use the exact names `silver` and
+`analytics`; use a separate database for each environment/developer.
+
+The [dbt extension](https://docs.getdbt.com/docs/configure-dbt-extension#about-env-file-support)
+reads `.env` from its project directory. On Linux/macOS, share the root file:
+
+```bash
+ln -s ../.env dbt/.env                # Run once, if the link does not exist.
+```
+
+On Windows, create a corresponding file link or configure `dbt.environmentVariables`
+in local editor settings. Select `.venv` as the Python interpreter and run
+**Developer: Reload Window**. Credentials and generated `dbt/target`, `dbt/logs`,
+and `dbt/dbt_packages` files are ignored. The `.env` paths are excluded from image builds.
+
+## Metrics
+
+| View | Grain |
+| --- | --- |
+| `dim_customers`, `dim_products`, `dim_sellers` | customer, product, seller |
+| `fact_orders` | order |
+| `fact_order_items` | order + item |
+| `mart_seller_performance` | seller |
+| `mart_category_performance` | category |
+| `mart_geography_sales` | customer state + city |
+
+All views are in `analytics`. Facts retain every order status. Sales marts include
+only delivered orders with items.
+
+| Metric | Definition |
+| --- | --- |
+| `total_orders` | Distinct delivered orders in the group |
+| `total_items_sold` | Item rows in those orders and the seller/category |
+| `total_revenue` | Sum of item prices, excluding freight |
+| Seller `avg_order_value`, `avg_freight_value` | Mean seller/order price and freight totals |
+| Category `avg_price` | Mean non-null item price, weighted by item |
+| Geography `avg_ticket` | Mean full order price + freight |
+| `avg_review_score` | Mean of per-order mean non-null review scores, weighted equally by reviewed order |
+| Seller `avg_delivery_delay_days` | Mean signed fractional delay, weighted by eligible seller/order |
+| `late_delivery_rate` | Late / eligible orders, weighted by seller/order or category/order |
+
+Delivery eligibility requires delivered status and both actual/estimated
+timestamps; no eligible outcomes yields NULL. Missing reviews do not remove sales.
+Category labels prefer English, fall back to Portuguese, then `unknown` for
+missing products/categories. Seller/geography marts exclude unmatched sellers/customers.
+Multi-seller/category order counts are not globally additive. Money and averages
+are rounded to two decimals; rates are fractions rounded to four decimals.
+Whole-order payment totals repeat on item rows and must not be summed across items.
+
+When upgrading an existing database, rebuild first, then remove the obsolete
+`silver.customers`, `silver.products`, and `silver.sellers` views. The gold
+dimensions now clean their raw sources directly; dbt does not delete old views.
+
+## Checks
+
+```bash
+uv run --locked pytest -q
+# Include the dbt metric regression using an empty disposable database:
+METRICS_TEST_DATABASE_URL=postgresql://user:password@localhost:5432/metrics_test \
+  uv run --locked pytest -q
+```
+
+The regression refuses existing `raw`, `silver`, or `analytics` schemas, loads
+synthetic edge cases, repeats builds, checks exact KPIs/schema names/lineage,
+and verifies a duplicate-item failure. It drops its own schemas on exit.
+Without the test URL it skips explicitly. The 45 dbt tests check grains,
+nonempty facts, bounds, and independent source-revenue reconciliation.
+
+## Files
+
+- `app/core`: environment settings, cached database engine, SQL runner.
+- `app/etl`: CSV mapping, extraction, validation, loading, pipeline, dbt wrapper.
+- `app/db`: raw DDL and indexes.
+- `dbt`: source/model SQL, descriptions, macros, and data tests.
+- `tests`: Python checks and the PostgreSQL metric regression.
+- `scripts`: manual SQL initialization and analytics row-count checks.
+
+Write SQL in lowercase, preserving case-sensitive string literals and quoted identifiers.
+
+Full reloads and ordinary views are sufficient for this dataset. Add incremental
+loads or materialization when measured load/query costs justify them.
