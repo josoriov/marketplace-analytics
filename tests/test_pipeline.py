@@ -1,3 +1,5 @@
+import subprocess
+
 import pytest
 
 from app.etl import pipeline
@@ -25,6 +27,7 @@ class TestRunPipeline:
             pipeline, "load_all",
             lambda ds: (call_order.append("load") or {}),
         )
+        monkeypatch.setattr(pipeline, "run_dbt", lambda *args: call_order.append("dbt build"))
 
         pipeline.run_pipeline()
 
@@ -35,8 +38,7 @@ class TestRunPipeline:
             "validate",
             "load",
             "indexes.sql",
-            "marts.sql",
-            "sanity_checks.sql",
+            "dbt build",
         ]
 
     def test_aborts_on_validation_failure(self, monkeypatch) -> None:
@@ -57,3 +59,18 @@ class TestRunPipeline:
 
         assert exc_info.value.code == 1
         assert script_calls == ["schema.sql"]
+
+    def test_propagates_dbt_failure(self, monkeypatch) -> None:
+        monkeypatch.setattr(pipeline, "test_connection", lambda: None)
+        monkeypatch.setattr(pipeline, "run_sql_script", lambda s: None)
+        monkeypatch.setattr(pipeline, "extract_datasets", lambda: {})
+        monkeypatch.setattr(pipeline, "validate_all", lambda ds: ValidationReport())
+        monkeypatch.setattr(pipeline, "load_all", lambda ds: None)
+
+        def fail(*args):
+            raise subprocess.CalledProcessError(1, ["dbt", *args])
+
+        monkeypatch.setattr(pipeline, "run_dbt", fail)
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
+            pipeline.run_pipeline()
+        assert exc_info.value.returncode == 1
