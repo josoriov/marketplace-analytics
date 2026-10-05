@@ -14,3 +14,12 @@ __pycache__/
 # IDE folders
 .vscode/
 .idea/
+
+# Local development notes
+.dev-notes/
+
+# Generated dbt artifacts
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml

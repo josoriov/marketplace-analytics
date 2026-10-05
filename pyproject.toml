@@ -1,0 +1,20 @@
+[project]
+name = "marketplace-analytics"
+version = "0.1.0"
+description = "Olist marketplace ingestion and seller analytics API"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "polars",
+    "sqlalchemy",
+    "psycopg2-binary",
+    "python-dotenv",
+    "dbt>=2.0.0,<3",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-pandas
-polars
-sqlalchemy
-psycopg2-binary
-pydantic
-python-dotenv
-pytest
