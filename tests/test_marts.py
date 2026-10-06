@@ -20,7 +20,7 @@ from app.etl.transform import run_dbt
 SQL_DIR = Path(__file__).resolve().parents[1] / "app" / "db"
 
 
-def test_mart_metrics_use_their_documented_grains(monkeypatch, tmp_path) -> None:
+def test_mart_metrics_use_their_documented_grains(monkeypatch, tmp_path, http_get) -> None:
     url = os.environ.get("METRICS_TEST_DATABASE_URL")
     if not url:
         pytest.skip("Set METRICS_TEST_DATABASE_URL to an empty disposable PostgreSQL database")
@@ -44,6 +44,7 @@ def test_mart_metrics_use_their_documented_grains(monkeypatch, tmp_path) -> None
         with connection.cursor() as cursor:
             cursor.execute("SELECT to_regnamespace('raw'), to_regnamespace('silver'), to_regnamespace('analytics')")
             assert cursor.fetchone() == (None, None, None), "Use an empty disposable database"
+            assert http_get("/ready") == (503, {"detail": "Database analytics unavailable"})
             owns_schemas = True
             cursor.execute((SQL_DIR / "schema.sql").read_text())
             cursor.execute("""
@@ -161,6 +162,50 @@ def test_mart_metrics_use_their_documented_grains(monkeypatch, tmp_path) -> None
                 FROM analytics.mart_category_performance
             """)
             assert cursor.fetchone() == (Decimal(370), Decimal(9))
+
+            assert http_get("/ready") == (200, {"status": "ok"})
+            status, sellers = http_get("/sellers/top?limit=2")
+            assert status == 200
+            assert [(s["seller_id"], s["total_revenue"]) for s in sellers] == [
+                ("s1", "235.00"), ("s2", "45.00"),
+            ]
+            assert http_get("/sellers/s1/performance") == (200, sellers[0])
+            status, seller = http_get("/sellers/s3/performance")
+            assert status == 200
+            assert seller["avg_review_score"] is None
+            assert seller["late_delivery_rate"] is None
+            assert http_get("/sellers/missing/performance")[0] == 404
+            assert http_get("/sellers/'%20OR%201=1%20--/performance")[0] == 404
+            status, categories = http_get("/categories/performance")
+            assert status == 200
+            assert [(c["product_category"], c["total_revenue"]) for c in categories] == [
+                ("books", "180.00"), ("unknown", "145.00"), ("artesanal", "45.00"),
+            ]
+            assert http_get("/categories/performance?limit=1") == (200, categories[:1])
+
+            # Unequal city/order/review counts expose averages of city averages.
+            cursor.execute("""
+                INSERT INTO raw.customers (customer_id, customer_city, customer_state)
+                VALUES ('c3', 'campinas', 'SP'), ('c4', NULL, NULL);
+                INSERT INTO raw.orders (order_id, customer_id, order_status)
+                VALUES ('o10', 'c3', 'delivered'), ('o11', 'c3', 'delivered'),
+                       ('o12', 'c4', 'delivered');
+                INSERT INTO raw.order_items (
+                    order_id, order_item_id, product_id, seller_id, price, freight_value
+                ) VALUES ('o10', 1, 'p1', 's1', 10, 1), ('o11', 1, 'p1', 's1', 20, 2),
+                         ('o12', 1, 'p1', 's1', 30, 3);
+                INSERT INTO raw.order_reviews (review_id, order_id, review_score)
+                VALUES ('r10', 'o10', 1), ('r12', 'o12', 5);
+            """)
+            assert http_get("/geography/states") == (200, [
+                {"customer_state": "SP", "total_orders": 7, "total_revenue": "310.00",
+                 "avg_ticket": "48.71", "avg_review_score": "3.00"},
+                {"customer_state": None, "total_orders": 1, "total_revenue": "30.00",
+                 "avg_ticket": "33.00", "avg_review_score": "5.00"},
+                {"customer_state": "RJ", "total_orders": 1, "total_revenue": "10.00",
+                 "avg_ticket": "11.00", "avg_review_score": None},
+            ])
+            assert len(http_get("/geography/states?limit=1")[1]) == 1
 
             cursor.execute("""
                 INSERT INTO raw.order_items
