@@ -1,16 +1,20 @@
 # Remaining work
 
 The current project ingests nine Olist CSVs, builds 14 PostgreSQL views with
-locked dbt v2, and serves `/health`. Metric definitions and runnable commands
-live in [README.md](README.md).
+locked dbt v2, and serves business metrics plus `/health` and `/ready`.
+Metric definitions and runnable commands live in [README.md](README.md).
 
 ## Business API
 
-- [ ] Add `/sellers/top?limit=10`, `/sellers/{seller_id}/performance`,
+- [x] Add `/sellers/top?limit=10`, `/sellers/{seller_id}/performance`,
   `/categories/performance`, and `/geography/states`.
-- [ ] Bound list inputs, parameterize queries, return clear 404s, and specify
+- [x] Bound list inputs, parameterize queries, return clear 404s, and specify
   decimal/null serialization. Compute state metrics at their proper grain.
-- [ ] Add database readiness and HTTP success/error/OpenAPI checks.
+- [x] Add database readiness and HTTP success/error/OpenAPI checks.
+- [x] Verify and decide if the creation of some other endpoints might add value to this project
+
+No additional business routes are needed now. README records when a global
+summary would help and how to avoid overlapping seller/category order counts.
 
 ## Verification and release
 

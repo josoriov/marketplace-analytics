@@ -2,15 +2,15 @@
 
 Load the [Olist dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
 into PostgreSQL, build analytics views with dbt v2, and run a FastAPI service.
-The API currently provides `/health` and `/docs`; business endpoints are planned
-in [TODO.md](TODO.md).
+The API provides seller, category, and state metrics, with interactive contracts
+at `/docs`. Remaining release work lives in [TODO.md](TODO.md).
 
 ## How it works
 
 ```text
 CSV files → Python/Polars validation → PostgreSQL raw tables
                                      → dbt silver views → analytics views
-FastAPI → /health
+FastAPI → analytics queries → JSON metrics
 ```
 
 Two services: PostgreSQL 16 stores the data; the Python 3.12 app runs ingestion,
@@ -48,6 +48,8 @@ cp .env.example .env                  # Edit credentials before starting.
 docker compose up --build -d
 docker compose exec app uv run --locked python -m app.etl.pipeline
 curl http://localhost:8000/health
+curl http://localhost:8000/ready
+curl 'http://localhost:8000/sellers/top?limit=10'
 ```
 
 Compose connects the app to `db:5432`; host commands use `POSTGRES_HOST` and the
@@ -78,6 +80,7 @@ for your platform when using Windows.
 uv sync --locked
 uv run --locked dbt --version        # Must be >=2.0.0; project rejects v1.
 uv run --locked python -m app.etl.pipeline
+uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Start PostgreSQL first, using Compose or your own instance. The pipeline checks
@@ -162,6 +165,42 @@ Multi-seller/category order counts are not globally additive. Money and averages
 are rounded to two decimals; rates are fractions rounded to four decimals.
 Whole-order payment totals repeat on item rows and must not be summed across items.
 
+## Business API
+
+| GET endpoint | Result |
+| --- | --- |
+| `/sellers/top?limit=10` | Seller metrics ranked by delivered item revenue |
+| `/sellers/{seller_id}/performance` | The same metrics for one seller |
+| `/categories/performance?limit=100` | Category metrics ranked by delivered item revenue |
+| `/geography/states?limit=100` | Customer state metrics ranked by delivered item revenue |
+| `/health` | Application liveness, without a database query |
+| `/ready` | Database connectivity and query access to the business sources |
+
+Lists accept an integer `limit` from 1 through 100; invalid values return 422.
+Revenue ties break by seller ID, category name, or state (NULL states last).
+An empty list returns `[]`. Seller IDs accept 1–32 characters; a seller absent
+from the delivered-sales mart returns 404, including sellers without delivered
+items. All caller values use SQL bind parameters. Database failures or unbuilt
+analytics return 503 with `{"detail":"Database analytics unavailable"}`.
+Empty but queryable views pass readiness.
+
+Decimal metrics serialize as JSON strings, preserving database precision and
+scale, for example `"235.00"` revenue or `"0.5000"` late-delivery rate. Counts
+are JSON integers; SQL NULL values remain JSON `null`, including missing
+reviews, ineligible delivery outcomes, and missing locations. `/openapi.json`
+specifies response fields, nullability, input bounds, and error responses.
+
+State results use matched customer orders with delivered items, including a
+NULL-state group. Revenue excludes freight; `avg_ticket` averages full order
+price plus freight, and `avg_review_score` averages reviewed orders equally.
+These metrics are calculated from order facts and order item totals, rather
+than averaging the city mart's rounded averages.
+
+Endpoint review: these routes cover seller ranking and investigation, category
+mix, and regional sales. No additional business endpoint has a current consumer.
+Add a global summary when a dashboard needs it; its distinct order counts must
+come from facts because seller/category counts overlap.
+
 When upgrading an existing database, rebuild first, then remove the obsolete
 `silver.customers`, `silver.products`, and `silver.sellers` views. The gold
 dimensions now clean their raw sources directly; dbt does not delete old views.
@@ -177,7 +216,11 @@ METRICS_TEST_DATABASE_URL=postgresql://user:password@localhost:5432/metrics_test
 
 The regression refuses existing `raw`, `silver`, or `analytics` schemas, loads
 synthetic edge cases, repeats builds, checks exact KPIs/schema names/lineage,
-and verifies a duplicate-item failure. It drops its own schemas on exit.
+and verifies a duplicate-item failure. It also checks HTTP results against real
+views, readiness before/after dbt, and state averages across unequal city and
+review counts. It drops its own schemas on exit. The database-free HTTP check
+uses Uvicorn and Python's HTTP client to verify serialization, input validation,
+parameter binding, empty results, 404/503 responses, and OpenAPI contracts.
 Without the test URL it skips explicitly. The 45 dbt tests check grains,
 nonempty facts, bounds, and independent source-revenue reconciliation.
 
