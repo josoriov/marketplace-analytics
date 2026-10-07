@@ -1,6 +1,7 @@
 """Quick script to validate analytics view row counts."""
-from app.core.database import get_connection
 from sqlalchemy import text
+
+from app.core.database import get_connection
 
 views = [
     "analytics.fact_orders",
@@ -12,5 +13,5 @@ views = [
 
 with get_connection() as conn:
     for view in views:
-        count = conn.execute(text(f"SELECT count(*) FROM {view}")).scalar()
+        count = conn.execute(text(f"select count(*) from {view}")).scalar()
         print(f"{view}: {count} rows")
