@@ -1,7 +1,6 @@
 from app.etl.config import INGESTION_CONFIGS
 
 
-
 def test_ingestion_configs_cover_each_raw_dataset() -> None:
     assert set(INGESTION_CONFIGS) == {
         "olist_customers_dataset.csv",

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Python checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          version: "0.12.22"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked ruff check .
+      - run: uv run --locked pytest -q
+
+  regression:
+    name: PostgreSQL regression
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: metrics_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d metrics_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DBT_ALLOW_EXPERIMENTAL_ADAPTERS: "true"
+      METRICS_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/metrics_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          version: "0.12.22"
+          enable-cache: true
+      # dbt v2 loads the native PostgreSQL client library at runtime.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpq5
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q
