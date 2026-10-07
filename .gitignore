@@ -6,10 +6,15 @@ data/raw/
 
 # Secrets
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/
+*.py[cod]
 .pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
 # IDE folders
 .vscode/
@@ -23,3 +28,8 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
+
+# Local architecture validation receipts
+docs/architecture/*.finalize.json
+docs/architecture/*.finalize-summary.json
+docs/architecture/*.browser-check.json
