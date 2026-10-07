@@ -1,35 +1,117 @@
 # Marketplace Analytics
 
-Load the [Olist dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
-into PostgreSQL, build analytics views with dbt v2, and run a FastAPI service.
-The API provides seller, category, and state metrics, with interactive contracts
-at `/docs`. Remaining release work lives in [TODO.md](TODO.md).
+[![CI](https://github.com/josoriov/marketplace-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/josoriov/marketplace-analytics/actions/workflows/ci.yml)
 
-## How it works
+A local analytics engineering project built on the
+[Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
+Python ingests and validates nine CSVs, dbt v2 builds a PostgreSQL warehouse,
+and FastAPI exposes seller, category, and regional sales metrics.
 
-```text
-CSV files → Python/Polars validation → PostgreSQL raw tables
-                                     → dbt silver views → analytics views
-FastAPI → analytics queries → JSON metrics
+The implementation combines Python 3.12, Polars, PostgreSQL 16, dbt, and uv.
+The examples below come from the supplied historical dataset; the API serves
+those analytics after a local refresh.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    csv[Olist CSVs] --> etl[Python / Polars ETL]
+    etl --> raw[raw tables]
+    raw --> silver[silver views]
+    silver --> analytics[analytics views]
+    raw -->|dimensions| analytics
+    etl -->|dbt build| dbt[dbt v2]
+    dbt -->|build and test| silver
+    dbt -->|build and test| analytics
+    client[API consumer] -->|HTTP / JSON| api[FastAPI]
+    api -->|SQL| analytics
 ```
 
-Two services: PostgreSQL 16 stores the data; the Python 3.12 app runs ingestion,
-dbt, and FastAPI. uv locks the Python packages and the official dbt v2 binary
-(currently 2.0.6). No separate transformation service or ORM is needed.
+[Interactive architecture diagram](docs/architecture/marketplace-analytics.html)
+— open the downloaded HTML in a browser for source links, themes, and image exports.
+The [diagram specification](docs/architecture/marketplace-analytics.architecture.json)
+and [model lineage](docs/lineage.md) are included.
 
-- `raw`: nine typed source tables. Python normalizes headers and parses numbers;
-  PostgreSQL parses timestamps and validates enums. Source strings and every
-  review/payment record are retained. Keep the original CSVs in `data/raw/`.
-- `silver`: six views clean order/item identifiers, normalize category mappings,
-  and aggregate items, reviews, and payments by order.
-- `analytics`: three cleaned, deterministically deduplicated dimensions, two facts,
-  and three business marts, all views. Order/item duplicates fail dbt tests.
-  Missing dimensions are allowed.
+Two Compose services run the project: PostgreSQL stores the data, and the Python
+app runs ingestion, dbt, and FastAPI. uv locks the Python packages and official
+dbt v2 binary (2.0.6).
 
-## Run with Docker Compose
+- **Raw:** nine typed tables retain source strings and every review/payment
+  record. Python normalizes headers and parses numbers; PostgreSQL parses
+  timestamps and validates enums.
+- **Silver:** six views clean identifiers and category mappings, then aggregate
+  items, reviews, and payments by order.
+- **Analytics:** three deterministically deduplicated dimensions, two facts, and
+  three business marts, all views. Duplicate order/item keys fail dbt tests;
+  missing dimensions are allowed. Geolocation is loaded but unused by the models.
 
-Copy `.env.example` to `.env`, set local credentials, and download these files
-into `data/raw/`:
+## Repository Layout
+
+| Path | Description |
+| --- | --- |
+| `app/core/` | Environment settings, cached database engine, and SQL runner |
+| `app/etl/` | CSV extraction, validation, transactional loading, and dbt wrapper |
+| `app/db/` | Raw PostgreSQL schema and indexes |
+| `app/main.py` | Business endpoints, liveness, and database readiness |
+| `dbt/` | Sources, models, metric descriptions, and data tests |
+| `tests/` | Python checks, HTTP contracts, and PostgreSQL metric regression |
+| `scripts/` | Manual database checks and exploratory notebook |
+| `docs/` | Findings, query plans, vulnerability evidence, and release verification |
+| `docs/architecture/` | Interactive diagram, source specification, and validation receipt |
+| `data/raw/` | Downloaded Olist CSVs; ignored by Git |
+
+## Current Status
+
+| Component | Status |
+| --- | --- |
+| Ingestion and warehouse | **Verified locally** — two full refreshes, 14 views, and 45 dbt tests per run |
+| Business API | **Complete** — seller, category, and state metrics with documented HTTP contracts |
+| Python checks | **Passing locally** — 42 tests with disposable PostgreSQL; 41 pass and one skips without it |
+| Compose workflow | **Verified with Podman** — Docker Compose itself remains unverified locally |
+| GitHub Actions | **Configured** — lint and PostgreSQL regression; first hosted run pending |
+| Container scan | **Known findings** — 0 critical and 44 high package findings across 8 high-severity CVEs |
+
+See the [release verification log](docs/release-readiness.md),
+[image scan](docs/security-scan.md), and [TODO.md](TODO.md) for evidence and limits.
+This is a local development setup: ports bind to localhost, the app runs as root
+inside the container, and ingestion and API queries share the database owner.
+
+## Example Results
+
+Recorded on 2026-10-07 using the full Olist dataset:
+
+- **Delivered sales:** 96,478 orders with items, 110,197 item rows, and
+  13,221,498.11 in item revenue excluding freight.
+- **Seller mix:** the top 10 of 2,970 sellers account for **13.27%** of delivered
+  item revenue. Seller revenues are additive; seller order counts overlap.
+- **Delivery and reviews:** **8.11%** of eligible orders arrived late. Among
+  reviewed eligible orders, late deliveries average **2.57/5**, compared with
+  **4.29/5** for on-time deliveries. This is an association, not a causal result.
+
+[Example queries, assumptions, and API output](docs/analytics.md) explain how
+these results were calculated.
+
+## Prerequisites
+
+- **Docker with Compose**, or **Podman with the `podman-compose` provider**.
+  Podman 6.1.3 with `podman-compose` 1.6.0 was used for local verification.
+- **Olist CSVs**, downloaded separately from Kaggle; see the license section.
+- For host execution and tests: **Python 3.12**, [uv](https://docs.astral.sh/uv/),
+  and the native PostgreSQL client library required by dbt v2.
+
+## Quick Start
+
+Run these commands from the repository root.
+
+### 1. Prepare the environment and data
+
+```bash
+cp .env.example .env
+mkdir -p data/raw
+```
+
+Edit `.env` to set your local database credentials. Download these nine files
+into `data/raw/` and keep the original CSVs there:
 
 ```text
 olist_orders_dataset.csv
@@ -43,25 +125,49 @@ product_category_name_translation.csv
 olist_geolocation_dataset.csv
 ```
 
+### 2. Start services and build the warehouse
+
 ```bash
-cp .env.example .env                  # Edit credentials before starting.
 docker compose up --build -d
 docker compose exec app uv run --locked python -m app.etl.pipeline
+```
+
+Compose connects the app to `db:5432`; host commands use `POSTGRES_HOST` and
+`POSTGRES_PORT` from `.env`. The pipeline checks connectivity, applies the raw
+schema, extracts and validates all files, reloads the tables, creates indexes,
+and runs `dbt build`.
+
+Missing columns, negative money, and invalid review scores stop loading.
+Duplicate source keys, reversed delivery dates, sparse columns, and empty CSVs
+produce warnings. Each table reload is one transaction; failed inserts restore
+that table's previous contents. Tables and dbt models commit separately, so a
+failed refresh can leave earlier objects updated. Complete a successful full
+build before consuming refreshed analytics.
+
+For Podman, substitute `podman compose` for `docker compose` in these commands.
+Python edits reload automatically; rebuild after dependency or Dockerfile
+changes. The image installs runtime dependencies in `/opt/venv`, which the
+`/app` bind mount does not hide. Run lint and pytest on the host or in CI.
+
+### 3. Verify the API
+
+```bash
 curl http://localhost:8000/health
 curl http://localhost:8000/ready
 curl 'http://localhost:8000/sellers/top?limit=10'
 ```
 
-Compose connects the app to `db:5432`; host commands use `POSTGRES_HOST` and the
-published `POSTGRES_PORT` in `.env`. Database files persist in `postgres_data`.
-Use `docker compose down` to stop services; adding `-v` deletes the database.
-Python edits reload automatically. Rebuild after dependency or Dockerfile changes.
-The container environment lives in `/opt/venv` so the `/app` bind mount cannot hide it.
+Open [interactive API docs](http://localhost:8000/docs) after starting the app.
+These URLs use the default `APP_PORT=8000`; adjust them if you change it.
+`/ready` returns 503 until the analytics sources exist and can be queried.
 
-## Run locally
+Use `docker compose down` to stop services. Database files persist in
+`postgres_data`; adding `-v` deletes that volume and its data.
 
-Install [uv](https://docs.astral.sh/uv/) and the native PostgreSQL client library
-required by dbt v2 (`libpq.so.5` on Linux). The image already includes it.
+## Run Locally
+
+Prepare `.env` and the CSVs as above. Install the native PostgreSQL client
+library (`libpq.so.5` on Linux); the container image already includes it:
 
 ```bash
 # Debian/Ubuntu:
@@ -72,32 +178,23 @@ sudo pacman -S --needed postgresql-libs
 brew install libpq
 ```
 
-For macOS, make Homebrew's libpq library directory available to the dynamic loader
-if it is outside its default search paths. Install PostgreSQL client libraries
-for your platform when using Windows.
+On macOS, make Homebrew's libpq library directory available to the dynamic loader
+if it is outside its search paths. On Windows, install the corresponding native
+PostgreSQL client libraries.
+
+Start PostgreSQL using Compose or your own instance, then run:
 
 ```bash
 uv sync --locked
-uv run --locked dbt --version        # Must be >=2.0.0; project rejects v1.
+uv run --locked dbt --version        # Must be >=2.0.0; dbt v1 is rejected.
 uv run --locked python -m app.etl.pipeline
 uv run --locked uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Start PostgreSQL first, using Compose or your own instance. The pipeline checks
-connectivity, applies `app/db/schema.sql`, reads and validates all nine CSVs,
-reloads raw tables, applies `app/db/indexes.sql`, then runs `dbt build`.
-Missing columns, negative money, or invalid review scores stop loading. Duplicate
-keys, reversed delivery dates, sparse columns, and empty CSVs produce warnings.
+## dbt Commands
 
-Each table reload is one transaction: a failed insert restores its previous
-contents. Tables commit separately, and dbt commits models separately. A failed
-refresh can leave earlier tables/models updated. Run a successful full build
-before consuming refreshed analytics.
-
-## dbt commands and editor
-
-The wrapper loads the repository `.env`, validates connection settings, and
-runs the dbt v2 binary installed in the active Python environment:
+The wrapper loads the repository `.env`, validates the connection settings, and
+uses the dbt binary in the active Python environment:
 
 ```bash
 uv run --locked python -m app.etl.transform debug
@@ -107,17 +204,20 @@ uv run --locked python -m app.etl.transform docs generate
 uv run --locked python -m app.etl.transform docs serve --port 8080
 ```
 
-Run the same commands after `docker compose exec app` inside the container.
+Prefix these commands with `docker compose exec app` inside the container.
 For the direct CLI, run from the repository root:
 
 ```bash
 uv run --locked dbt build --project-dir dbt --profiles-dir dbt
 ```
 
-PostgreSQL is experimental in dbt v2. `.env.example` and the image enable
-`DBT_ALLOW_EXPERIMENTAL_ADAPTERS=true`. The profile uses environment variables;
-exported values override `.env`. Schemas use the exact names `silver` and
-`analytics`; use a separate database for each environment/developer.
+PostgreSQL support is experimental in dbt v2; `.env.example` and the image enable
+`DBT_ALLOW_EXPERIMENTAL_ADAPTERS=true`. Exported variables override `.env`.
+Schemas use the exact names `silver` and `analytics`; use a separate database
+for each environment or developer.
+
+<details>
+<summary>dbt editor setup</summary>
 
 The [dbt extension](https://docs.getdbt.com/docs/configure-dbt-extension#about-env-file-support)
 reads `.env` from its project directory. On Linux/macOS, share the root file:
@@ -126,24 +226,55 @@ reads `.env` from its project directory. On Linux/macOS, share the root file:
 ln -s ../.env dbt/.env                # Run once, if the link does not exist.
 ```
 
-On Windows, create a corresponding file link or configure `dbt.environmentVariables`
-in local editor settings. Select `.venv` as the Python interpreter and run
-**Developer: Reload Window**. Credentials and generated `dbt/target`, `dbt/logs`,
-and `dbt/dbt_packages` files are ignored. The `.env` paths are excluded from image builds.
+On Windows, create a corresponding file link or configure
+`dbt.environmentVariables` in local editor settings. Select `.venv` as the
+Python interpreter and run **Developer: Reload Window**. Credentials and
+`dbt/target`, `dbt/logs`, `dbt/dbt_packages`, and `dbt/.user.yml` are ignored.
+Both `.env` paths are excluded from image builds.
+
+</details>
+
+## Business API
+
+| GET endpoint | Result |
+| --- | --- |
+| `/sellers/top?limit=10` | Sellers ranked by delivered item revenue |
+| `/sellers/{seller_id}/performance` | Delivered-sales metrics for one seller |
+| `/categories/performance?limit=100` | Categories ranked by delivered item revenue |
+| `/geography/states?limit=100` | Customer states ranked by delivered item revenue |
+| `/health` | Application liveness, without a database query |
+| `/ready` | Database connectivity and access to the business query sources |
+
+Lists accept an integer `limit` from 1 through 100; invalid values return 422.
+Revenue ties break by seller ID, category name, or state, with NULL states last.
+Empty lists return `[]`. Seller IDs accept 1–32 characters; sellers absent from
+the delivered-sales mart, including those without delivered items, return 404.
+All caller values use SQL bind parameters. Database failures or unbuilt analytics
+return 503 with `{"detail":"Database analytics unavailable"}`. Empty queryable
+views pass readiness.
+
+Decimals serialize as JSON strings preserving precision and scale, such as
+`"235.00"` revenue and `"0.5000"` late-delivery rate. Counts are integers; SQL NULL
+values remain JSON `null`. `/openapi.json` describes fields, nullability,
+input bounds, and error responses.
+
+State results come from matched customer orders with delivered items, including
+a NULL-state group. They use order facts and item totals to weight ticket and
+review averages by order, rather than averaging rounded city-level averages.
 
 ## Metrics
 
+All views below are in `analytics`. Facts retain every order status; sales
+marts include only delivered orders with items.
+
 | View | Grain |
 | --- | --- |
-| `dim_customers`, `dim_products`, `dim_sellers` | customer, product, seller |
-| `fact_orders` | order |
-| `fact_order_items` | order + item |
-| `mart_seller_performance` | seller |
-| `mart_category_performance` | category |
-| `mart_geography_sales` | customer state + city |
-
-All views are in `analytics`. Facts retain every order status. Sales marts include
-only delivered orders with items.
+| `dim_customers`, `dim_products`, `dim_sellers` | Customer, product, seller |
+| `fact_orders` | Order |
+| `fact_order_items` | Order + item |
+| `mart_seller_performance` | Seller |
+| `mart_category_performance` | Category |
+| `mart_geography_sales` | Customer state + city |
 
 | Metric | Definition |
 | --- | --- |
@@ -158,82 +289,64 @@ only delivered orders with items.
 | `late_delivery_rate` | Late / eligible orders, weighted by seller/order or category/order |
 
 Delivery eligibility requires delivered status and both actual/estimated
-timestamps; no eligible outcomes yields NULL. Missing reviews do not remove sales.
-Category labels prefer English, fall back to Portuguese, then `unknown` for
-missing products/categories. Seller/geography marts exclude unmatched sellers/customers.
-Multi-seller/category order counts are not globally additive. Money and averages
-are rounded to two decimals; rates are fractions rounded to four decimals.
-Whole-order payment totals repeat on item rows and must not be summed across items.
+timestamps; no eligible outcomes yields NULL. Missing reviews do not remove
+sales. Category labels prefer English, fall back to Portuguese, then `unknown`
+for missing products/categories. Seller/geography marts exclude unmatched
+sellers/customers. Multi-seller/category order counts are not globally additive.
+Money and averages round to two decimals; rates are fractions rounded to four.
+Whole-order payment totals repeat on item rows and must not be summed across them.
 
-## Business API
-
-| GET endpoint | Result |
-| --- | --- |
-| `/sellers/top?limit=10` | Seller metrics ranked by delivered item revenue |
-| `/sellers/{seller_id}/performance` | The same metrics for one seller |
-| `/categories/performance?limit=100` | Category metrics ranked by delivered item revenue |
-| `/geography/states?limit=100` | Customer state metrics ranked by delivered item revenue |
-| `/health` | Application liveness, without a database query |
-| `/ready` | Database connectivity and query access to the business sources |
-
-Lists accept an integer `limit` from 1 through 100; invalid values return 422.
-Revenue ties break by seller ID, category name, or state (NULL states last).
-An empty list returns `[]`. Seller IDs accept 1–32 characters; a seller absent
-from the delivered-sales mart returns 404, including sellers without delivered
-items. All caller values use SQL bind parameters. Database failures or unbuilt
-analytics return 503 with `{"detail":"Database analytics unavailable"}`.
-Empty but queryable views pass readiness.
-
-Decimal metrics serialize as JSON strings, preserving database precision and
-scale, for example `"235.00"` revenue or `"0.5000"` late-delivery rate. Counts
-are JSON integers; SQL NULL values remain JSON `null`, including missing
-reviews, ineligible delivery outcomes, and missing locations. `/openapi.json`
-specifies response fields, nullability, input bounds, and error responses.
-
-State results use matched customer orders with delivered items, including a
-NULL-state group. Revenue excludes freight; `avg_ticket` averages full order
-price plus freight, and `avg_review_score` averages reviewed orders equally.
-These metrics are calculated from order facts and order item totals, rather
-than averaging the city mart's rounded averages.
-
-Endpoint review: these routes cover seller ranking and investigation, category
-mix, and regional sales. No additional business endpoint has a current consumer.
-Add a global summary when a dashboard needs it; its distinct order counts must
-come from facts because seller/category counts overlap.
-
-When upgrading an existing database, rebuild first, then remove the obsolete
-`silver.customers`, `silver.products`, and `silver.sellers` views. The gold
-dimensions now clean their raw sources directly; dbt does not delete old views.
-
-## Checks
+## Run Tests
 
 ```bash
+uv sync --locked
+uv run --locked ruff check .
 uv run --locked pytest -q
-# Include the dbt metric regression using an empty disposable database:
+```
+
+Include the metric regression with an empty disposable database:
+
+```bash
 METRICS_TEST_DATABASE_URL=postgresql://user:password@localhost:5432/metrics_test \
   uv run --locked pytest -q
 ```
 
 The regression refuses existing `raw`, `silver`, or `analytics` schemas, loads
-synthetic edge cases, repeats builds, checks exact KPIs/schema names/lineage,
-and verifies a duplicate-item failure. It also checks HTTP results against real
-views, readiness before/after dbt, and state averages across unequal city and
-review counts. It drops its own schemas on exit. The database-free HTTP check
-uses Uvicorn and Python's HTTP client to verify serialization, input validation,
-parameter binding, empty results, 404/503 responses, and OpenAPI contracts.
-Without the test URL it skips explicitly. The 45 dbt tests check grains,
-nonempty facts, bounds, and independent source-revenue reconciliation.
+synthetic edge cases, repeats builds, checks exact KPIs and lineage, exercises
+HTTP against real views, and verifies a duplicate-item failure. It drops its
+own schemas on exit; without the URL it skips explicitly. Database-free HTTP
+checks cover serialization, bounds, parameter binding, empty results, 404/503
+responses, and OpenAPI. The 45 dbt tests check grains, nonempty facts, bounds,
+and independent source-revenue reconciliation.
 
-## Files
+[GitHub Actions](.github/workflows/ci.yml) runs lint, Python checks, and the
+PostgreSQL regression on pushes to `main` and pull requests.
 
-- `app/core`: environment settings, cached database engine, SQL runner.
-- `app/etl`: CSV mapping, extraction, validation, loading, pipeline, dbt wrapper.
-- `app/db`: raw DDL and indexes.
-- `dbt`: source/model SQL, descriptions, macros, and data tests.
-- `tests`: Python checks and the PostgreSQL metric regression.
-- `scripts`: manual SQL initialization and analytics row-count checks.
+## Validation and Scope
 
-Write SQL in lowercase, preserving case-sensitive string literals and quoted identifiers.
+Full reloads and ordinary views are sufficient for this dataset. The
+[query plans](docs/query-plans.md) support no index-speedup claim for the business
+API. Add incremental loads, materialization, caching, or more endpoints when a
+measured workload or consumer needs them. Global order counts must come from
+facts because seller/category counts overlap.
 
-Full reloads and ordinary views are sufficient for this dataset. Add incremental
-loads or materialization when measured load/query costs justify them.
+When upgrading an older database, rebuild successfully before removing the
+obsolete `silver.customers`, `silver.products`, and `silver.sellers` views.
+The gold dimensions clean their raw sources directly; dbt does not delete old views.
+Write SQL in lowercase, preserving case-sensitive literals and quoted identifiers.
+
+## License and Data
+
+The code is released under the [MIT License](LICENSE). Olist-derived data examples
+and findings in `docs/`, plus the historical sample described below, are
+attributed to Olist and shared under
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+The analysis aggregates and transforms source data; MIT applies to the code.
+
+The full CSVs are downloaded separately and `data/raw/` is ignored by Git.
+History retains five geolocation rows and two product summaries in an old
+`scripts/file_check.ipynb` output (commit `42b0612`); the current notebook has
+no outputs. Those excerpts come from the same
+[Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
+and remain covered by its attribution, non-commercial, and share-alike terms.
+This project is independent and is not affiliated with or endorsed by Olist.

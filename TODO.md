@@ -18,16 +18,22 @@ summary would help and how to avoid overlapping seller/category order counts.
 
 ## Verification and release
 
-- [ ] Verify a fresh Compose setup and repeated ingestion-to-HTTP runs;
+- [x] Verify a fresh Compose setup and repeated ingestion-to-HTTP runs;
   document the Podman Compose provider if supporting Podman.
-- [ ] Add CI with Python checks and the disposable PostgreSQL regression.
-- [ ] Record query plans before claiming index speedups.
-- [ ] Rescan the final image and review remaining relevant vulnerabilities.
-- [ ] Verify a clean clone using README, choose a code license, and confirm
+- [x] Add CI with Python checks and the disposable PostgreSQL regression.
+- [x] Record query plans before claiming index speedups.
+- [x] Rescan the final image and review remaining relevant vulnerabilities.
+- [x] Verify a clean clone using README, choose a code license, and confirm
   dataset attribution/redistribution terms.
-- [ ] Add a useful model lineage example, five example queries, and two or
+- [x] Add a useful model lineage example, five example queries, and two or
   three verified findings with their assumptions and sample API output.
-- [ ] Review files/history for secrets and raw data before publishing the repo.
+- [x] Review files/history for secrets and raw data before publishing the repo.
+
+Evidence and limitations are in [docs/release-readiness.md](docs/release-readiness.md).
+Compose was verified with Podman and its documented provider; Docker Compose and
+the first hosted GitHub CI run remain unverified. Known Debian image findings
+are documented, and historical Olist samples are retained with explicit data
+licensing. Public repository readiness does not imply internet deployment readiness.
 
 Keep one PostgreSQL database and one app service. Add a frontend, orchestration,
 caching, incremental models, materialization, or cloud hosting only when needed.
