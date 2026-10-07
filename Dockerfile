@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_PYTHON_DOWNLOADS=never \
+    UV_NO_DEV=1 \
     DBT_ALLOW_EXPERIMENTAL_ADAPTERS=true \
     PATH="/opt/venv/bin:$PATH"
 
@@ -16,7 +17,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq5 \
     && rm -rf /var/lib/apt/lists/* \
     && python -m pip uninstall --yes pip \
-    && uv sync --locked --no-cache
+    && uv sync --locked --no-dev --no-cache
 
 COPY app ./app
 COPY dbt ./dbt
