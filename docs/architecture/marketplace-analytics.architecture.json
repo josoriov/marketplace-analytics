@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Marketplace Analytics Architecture",
+    "output": "docs/architecture/marketplace-analytics.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/josoriov/marketplace-analytics.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "c312a81e9add32d3b5a3053860da1d20232fc8bc"
+    }
+  },
+  "components": [
+    {
+      "id": "consumer",
+      "type": "external",
+      "label": "API Consumer",
+      "sublabel": "curl · dashboard · /docs",
+      "pos": [40, 60],
+      "size": [130, 60]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI Service",
+      "sublabel": "uvicorn :8000",
+      "pos": [250, 60],
+      "size": [160, 66],
+      "sources": [
+        { "path": "app/main.py", "line": 54, "end_line": 64, "label": "app + query runner" },
+        { "path": "app/main.py", "line": 88, "end_line": 141, "label": "business routes" }
+      ]
+    },
+    {
+      "id": "dbt",
+      "type": "backend",
+      "label": "dbt v2 Engine",
+      "sublabel": "builds view models",
+      "pos": [250, 260],
+      "size": [160, 60],
+      "sources": [
+        { "path": "app/etl/transform.py", "line": 10, "end_line": 20, "label": "runs locked dbt binary" },
+        { "path": "dbt/dbt_project.yml", "line": 7, "end_line": 13, "label": "schema mapping" }
+      ]
+    },
+    {
+      "id": "pipeline",
+      "type": "backend",
+      "label": "ETL Pipeline",
+      "sublabel": "extract · validate · load",
+      "pos": [250, 460],
+      "size": [160, 66],
+      "sources": [
+        { "path": "app/etl/pipeline.py", "line": 16, "end_line": 48, "label": "seven-step run" }
+      ]
+    },
+    {
+      "id": "csvs",
+      "type": "external",
+      "label": "Olist CSVs",
+      "sublabel": "data/raw · 9 files",
+      "pos": [40, 460],
+      "size": [140, 60],
+      "sources": [
+        { "path": "app/etl/extract.py", "line": 63, "end_line": 74, "label": "reads configured CSVs" }
+      ]
+    },
+    {
+      "id": "analytics",
+      "type": "database",
+      "label": "analytics schema",
+      "sublabel": "3 dims · 2 facts · 3 marts",
+      "pos": [560, 60],
+      "size": [190, 66],
+      "sources": [
+        { "path": "dbt/dbt_project.yml", "line": 12, "end_line": 13, "label": "gold -> analytics" },
+        { "path": "dbt/models/gold/fact_orders.sql", "line": 1, "end_line": 1, "label": "fact model" }
+      ]
+    },
+    {
+      "id": "silver",
+      "type": "database",
+      "label": "silver schema",
+      "sublabel": "6 cleaned views",
+      "pos": [560, 260],
+      "size": [190, 60],
+      "sources": [
+        { "path": "dbt/dbt_project.yml", "line": 10, "end_line": 11, "label": "silver -> silver" },
+        { "path": "dbt/models/silver/orders.sql", "line": 1, "end_line": 1, "label": "cleaning view" }
+      ]
+    },
+    {
+      "id": "raw",
+      "type": "database",
+      "label": "raw schema",
+      "sublabel": "9 typed tables",
+      "pos": [560, 460],
+      "size": [190, 60],
+      "sources": [
+        { "path": "app/db/schema.sql", "line": 1, "end_line": 1, "label": "raw schema + enums" },
+        { "path": "app/etl/load.py", "line": 33, "end_line": 41, "label": "atomic reload" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "app container · Python 3.12 + dbt v2",
+      "wraps": ["api", "pipeline", "dbt"],
+      "pad": 24
+    },
+    {
+      "kind": "region",
+      "label": "PostgreSQL 16 · db:5432",
+      "wraps": ["raw", "silver", "analytics"],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    { "id": "consumer-api", "from": "consumer", "to": "api", "label": "HTTP · JSON", "variant": "emphasis" },
+    { "id": "api-analytics", "from": "api", "to": "analytics", "label": "SQL · psycopg2", "variant": "emphasis" },
+    { "id": "csvs-pipeline", "from": "csvs", "to": "pipeline", "label": "reads 9 CSVs" },
+    { "id": "pipeline-raw", "from": "pipeline", "to": "raw", "label": "TRUNCATE + INSERT", "variant": "emphasis" },
+    { "id": "raw-dbt", "from": "raw", "to": "dbt", "label": "select sources", "route": "orthogonal-h" },
+    { "id": "dbt-silver", "from": "dbt", "to": "silver", "label": "build views", "variant": "emphasis" },
+    { "id": "silver-analytics", "from": "silver", "to": "analytics", "label": "build views", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Serving Path",
+      "items": [
+        "FastAPI exposes /health, /ready, and seller, category, and state routes",
+        "Metrics are read from the analytics views with bound SQL parameters",
+        "Decimals serialize as JSON strings; missing values stay JSON null"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Ingestion Path",
+      "items": [
+        "The pipeline runs seven steps: connect, schema, extract, validate, load, indexes, dbt build",
+        "Failed validation aborts before loading; the process exits non-zero",
+        "Each raw table reloads atomically as truncate plus batched insert in one transaction"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Data Model",
+      "items": [
+        "raw holds 9 typed source tables; silver has 6 views; analytics has 8 views",
+        "Dimension cleaning lives in the gold models; silver only cleans and aggregates",
+        "Geolocation is loaded but referenced by no downstream model"
+      ]
+    }
+  ]
+}
