@@ -1,0 +1,841 @@
+PostgreSQL 16; full Olist dataset; 2026-10-07
+One warm-up and three timed runs per query/mode. Text plan is an additional run.
+
+top_sellers / defaults
+SQL: select * from analytics.mart_seller_performance
+        order by total_revenue desc, seller_id
+        limit :limit
+Parameters: {"limit": 10, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [1254.802, 1251.623, 1262.183]; median: 1254.802
+Limit  (cost=414694666.51..414694666.53 rows=10 width=334) (actual time=1253.706..1253.752 rows=10 loops=1)
+  Buffers: shared hit=10218, temp read=9113 written=9132
+  ->  Sort  (cost=414694666.51..414694674.96 rows=3382 width=334) (actual time=930.515..930.561 rows=10 loops=1)
+        Sort Key: (COALESCE(sum((sum(order_items.price))), '0'::numeric)) DESC, ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32))
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=10218, temp read=9113 written=9132
+        ->  Finalize GroupAggregate  (cost=414693925.48..414694593.42 rows=3382 width=334) (actual time=922.096..929.819 rows=2970 loops=1)
+              Group Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+              Buffers: shared hit=10218, temp read=9113 written=9132
+              ->  Gather Merge  (cost=414693925.48..414694314.41 rows=3382 width=358) (actual time=922.064..922.858 rows=3020 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=10218, temp read=9113 written=9132
+                    ->  Sort  (cost=414692925.47..414692933.92 rows=3382 width=358) (actual time=872.751..872.907 rows=1510 loops=2)
+                          Sort Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                          Sort Method: quicksort  Memory: 1562kB
+                          Buffers: shared hit=10218, temp read=9113 written=9132
+                          Worker 0:  Sort Method: quicksort  Memory: 50kB
+                          ->  Partial HashAggregate  (cost=414692642.67..414692727.22 rows=3382 width=358) (actual time=870.876..871.804 rows=1510 loops=2)
+                                Group Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                                Batches: 1  Memory Usage: 5489kB
+                                Buffers: shared hit=10213, temp read=9113 written=9132
+                                Worker 0:  Batches: 1  Memory Usage: 241kB
+                                ->  Hash Left Join  (cost=81690.41..2715192.91 rows=10299436244 width=250) (actual time=746.699..846.081 rows=48910 loops=2)
+                                      Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+                                      Buffers: shared hit=10213, temp read=9113 written=9132
+                                      ->  Merge Join  (cost=63665.91..694901.50 rows=28012338 width=251) (actual time=557.357..622.629 rows=48910 loops=2)
+                                            Merge Cond: ((((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text) = (((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32)))::text)
+                                            Buffers: shared hit=6575, temp read=6411 written=6426
+                                            ->  Sort  (cost=9260.85..9404.45 rows=57442 width=53) (actual time=226.188..238.066 rows=48239 loops=2)
+                                                  Sort Key: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text)
+                                                  Sort Method: external merge  Disk: 9080kB
+                                                  Buffers: shared hit=1715, temp read=1135 written=1138
+                                                  Worker 0:  Sort Method: quicksort  Memory: 31kB
+                                                  ->  Parallel Seq Scan on orders  (cost=0.00..2756.61 rows=57442 width=53) (actual time=168.522..184.984 rows=48239 loops=2)
+                                                        Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                                        Rows Removed by Filter: 1482
+                                                        Buffers: shared hit=1715
+                                            ->  Materialize  (cost=54405.06..54892.72 rows=97532 width=280) (actual time=330.929..363.591 rows=99826 loops=2)
+                                                  Buffers: shared hit=4860, temp read=5276 written=5288
+                                                  ->  Sort  (cost=54405.06..54648.89 rows=97532 width=280) (actual time=330.925..356.452 rows=99826 loops=2)
+                                                        Sort Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                        Sort Method: external merge  Disk: 11232kB
+                                                        Buffers: shared hit=4860, temp read=5276 written=5288
+                                                        Worker 0:  Sort Method: external merge  Disk: 11232kB
+                                                        ->  Hash Join  (cost=27634.85..33652.78 rows=97532 width=280) (actual time=157.557..241.503 rows=100010 loops=2)
+                                                              Hash Cond: ((((NULLIF(btrim((order_items.seller_id)::text), ''::text))::character varying(32)))::text = (((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)))::text)
+                                                              Buffers: shared hit=4860, temp read=2468 written=2474
+                                                              ->  GroupAggregate  (cost=27217.29..32003.57 rows=97532 width=236) (actual time=153.693..224.938 rows=100010 loops=2)
+                                                                    Group Key: ((NULLIF(btrim((order_items.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                    Buffers: shared hit=4794, temp read=2468 written=2474
+                                                                    ->  Sort  (cost=27217.29..27527.34 rows=124021 width=176) (actual time=153.670..174.320 rows=112650 loops=2)
+                                                                          Sort Key: ((NULLIF(btrim((order_items.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                          Sort Method: external merge  Disk: 9872kB
+                                                                          Buffers: shared hit=4794, temp read=2468 written=2474
+                                                                          Worker 0:  Sort Method: external merge  Disk: 9872kB
+                                                                          ->  Seq Scan on order_items  (cost=0.00..6126.97 rows=124021 width=176) (actual time=0.012..54.055 rows=112650 loops=2)
+                                                                                Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                                Buffers: shared hit=4794
+                                                              ->  Hash  (cost=375.28..375.28 rows=3382 width=126) (actual time=3.852..3.853 rows=3095 loops=2)
+                                                                    Buckets: 4096  Batches: 1  Memory Usage: 272kB
+                                                                    Buffers: shared hit=66
+                                                                    ->  Unique  (cost=358.37..375.28 rows=3382 width=126) (actual time=3.292..3.642 rows=3095 loops=2)
+                                                                          Buffers: shared hit=66
+                                                                          ->  Sort  (cost=358.37..366.82 rows=3382 width=126) (actual time=3.292..3.393 rows=3095 loops=2)
+                                                                                Sort Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                                                                                Sort Method: quicksort  Memory: 321kB
+                                                                                Buffers: shared hit=66
+                                                                                Worker 0:  Sort Method: quicksort  Memory: 321kB
+                                                                                ->  Seq Scan on sellers  (cost=0.00..160.12 rows=3382 width=126) (actual time=0.021..1.510 rows=3095 loops=2)
+                                                                                      Filter: ((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32) IS NOT NULL)
+                                                                                      Buffers: shared hit=66
+                                      ->  Hash  (cost=15812.31..15812.31 rows=73535 width=114) (actual time=189.135..189.137 rows=98673 loops=2)
+                                            Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+                                            Buffers: shared hit=3638, temp read=1120 written=1822
+                                            ->  Subquery Scan on reviews  (cost=13049.72..15812.31 rows=73535 width=114) (actual time=120.358..175.867 rows=98673 loops=2)
+                                                  Buffers: shared hit=3638, temp read=1120 written=1124
+                                                  ->  GroupAggregate  (cost=13049.72..15076.96 rows=73535 width=114) (actual time=120.356..170.620 rows=98673 loops=2)
+                                                        Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                        Buffers: shared hit=3638, temp read=1120 written=1124
+                                                        ->  Sort  (cost=13049.72..13235.23 rows=74206 width=84) (actual time=120.332..139.926 rows=99224 loops=2)
+                                                              Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                              Sort Method: external merge  Disk: 4480kB
+                                                              Buffers: shared hit=3638, temp read=1120 written=1124
+                                                              Worker 0:  Sort Method: external merge  Disk: 4480kB
+                                                              ->  Seq Scan on order_reviews  (cost=0.00..3494.23 rows=74206 width=84) (actual time=0.022..36.665 rows=99224 loops=2)
+                                                                    Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                    Buffers: shared hit=3638
+Planning Time: 0.526 ms
+JIT:
+  Functions: 108
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 4.782 ms, Inlining 53.340 ms, Optimization 350.615 ms, Emission 256.467 ms, Total 665.204 ms
+Execution Time: 1259.293 ms
+
+top_sellers / index_scans_disabled
+SQL: select * from analytics.mart_seller_performance
+        order by total_revenue desc, seller_id
+        limit :limit
+Parameters: {"limit": 10, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [1265.124, 1264.285, 1258.364]; median: 1264.285
+Limit  (cost=414694666.51..414694666.53 rows=10 width=334) (actual time=1255.329..1255.376 rows=10 loops=1)
+  Buffers: shared hit=10218, temp read=9113 written=9132
+  ->  Sort  (cost=414694666.51..414694674.96 rows=3382 width=334) (actual time=937.393..937.438 rows=10 loops=1)
+        Sort Key: (COALESCE(sum((sum(order_items.price))), '0'::numeric)) DESC, ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32))
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=10218, temp read=9113 written=9132
+        ->  Finalize GroupAggregate  (cost=414693925.48..414694593.42 rows=3382 width=334) (actual time=929.211..936.710 rows=2970 loops=1)
+              Group Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+              Buffers: shared hit=10218, temp read=9113 written=9132
+              ->  Gather Merge  (cost=414693925.48..414694314.41 rows=3382 width=358) (actual time=929.179..929.931 rows=3020 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=10218, temp read=9113 written=9132
+                    ->  Sort  (cost=414692925.47..414692933.92 rows=3382 width=358) (actual time=882.292..882.423 rows=1510 loops=2)
+                          Sort Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                          Sort Method: quicksort  Memory: 1562kB
+                          Buffers: shared hit=10218, temp read=9113 written=9132
+                          Worker 0:  Sort Method: quicksort  Memory: 50kB
+                          ->  Partial HashAggregate  (cost=414692642.67..414692727.22 rows=3382 width=358) (actual time=880.291..881.261 rows=1510 loops=2)
+                                Group Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                                Batches: 1  Memory Usage: 5489kB
+                                Buffers: shared hit=10213, temp read=9113 written=9132
+                                Worker 0:  Batches: 1  Memory Usage: 241kB
+                                ->  Hash Left Join  (cost=81690.41..2715192.91 rows=10299436244 width=250) (actual time=754.289..855.096 rows=48910 loops=2)
+                                      Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+                                      Buffers: shared hit=10213, temp read=9113 written=9132
+                                      ->  Merge Join  (cost=63665.91..694901.50 rows=28012338 width=251) (actual time=560.670..626.765 rows=48910 loops=2)
+                                            Merge Cond: ((((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text) = (((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32)))::text)
+                                            Buffers: shared hit=6575, temp read=6411 written=6426
+                                            ->  Sort  (cost=9260.85..9404.45 rows=57442 width=53) (actual time=226.836..239.040 rows=48239 loops=2)
+                                                  Sort Key: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text)
+                                                  Sort Method: external merge  Disk: 9080kB
+                                                  Buffers: shared hit=1715, temp read=1135 written=1138
+                                                  Worker 0:  Sort Method: quicksort  Memory: 31kB
+                                                  ->  Parallel Seq Scan on orders  (cost=0.00..2756.61 rows=57442 width=53) (actual time=169.049..185.382 rows=48239 loops=2)
+                                                        Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                                        Rows Removed by Filter: 1482
+                                                        Buffers: shared hit=1715
+                                            ->  Materialize  (cost=54405.06..54892.72 rows=97532 width=280) (actual time=333.621..366.560 rows=99826 loops=2)
+                                                  Buffers: shared hit=4860, temp read=5276 written=5288
+                                                  ->  Sort  (cost=54405.06..54648.89 rows=97532 width=280) (actual time=333.617..359.450 rows=99826 loops=2)
+                                                        Sort Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                        Sort Method: external merge  Disk: 11232kB
+                                                        Buffers: shared hit=4860, temp read=5276 written=5288
+                                                        Worker 0:  Sort Method: external merge  Disk: 11232kB
+                                                        ->  Hash Join  (cost=27634.85..33652.78 rows=97532 width=280) (actual time=159.696..243.973 rows=100010 loops=2)
+                                                              Hash Cond: ((((NULLIF(btrim((order_items.seller_id)::text), ''::text))::character varying(32)))::text = (((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)))::text)
+                                                              Buffers: shared hit=4860, temp read=2468 written=2474
+                                                              ->  GroupAggregate  (cost=27217.29..32003.57 rows=97532 width=236) (actual time=155.805..227.398 rows=100010 loops=2)
+                                                                    Group Key: ((NULLIF(btrim((order_items.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                    Buffers: shared hit=4794, temp read=2468 written=2474
+                                                                    ->  Sort  (cost=27217.29..27527.34 rows=124021 width=176) (actual time=155.778..176.557 rows=112650 loops=2)
+                                                                          Sort Key: ((NULLIF(btrim((order_items.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                          Sort Method: external merge  Disk: 9872kB
+                                                                          Buffers: shared hit=4794, temp read=2468 written=2474
+                                                                          Worker 0:  Sort Method: external merge  Disk: 9872kB
+                                                                          ->  Seq Scan on order_items  (cost=0.00..6126.97 rows=124021 width=176) (actual time=0.012..54.701 rows=112650 loops=2)
+                                                                                Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                                Buffers: shared hit=4794
+                                                              ->  Hash  (cost=375.28..375.28 rows=3382 width=126) (actual time=3.878..3.879 rows=3095 loops=2)
+                                                                    Buckets: 4096  Batches: 1  Memory Usage: 272kB
+                                                                    Buffers: shared hit=66
+                                                                    ->  Unique  (cost=358.37..375.28 rows=3382 width=126) (actual time=3.306..3.659 rows=3095 loops=2)
+                                                                          Buffers: shared hit=66
+                                                                          ->  Sort  (cost=358.37..366.82 rows=3382 width=126) (actual time=3.305..3.412 rows=3095 loops=2)
+                                                                                Sort Key: ((NULLIF(btrim((sellers.seller_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                                                                                Sort Method: quicksort  Memory: 321kB
+                                                                                Buffers: shared hit=66
+                                                                                Worker 0:  Sort Method: quicksort  Memory: 321kB
+                                                                                ->  Seq Scan on sellers  (cost=0.00..160.12 rows=3382 width=126) (actual time=0.020..1.517 rows=3095 loops=2)
+                                                                                      Filter: ((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32) IS NOT NULL)
+                                                                                      Buffers: shared hit=66
+                                      ->  Hash  (cost=15812.31..15812.31 rows=73535 width=114) (actual time=193.354..193.356 rows=98673 loops=2)
+                                            Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+                                            Buffers: shared hit=3638, temp read=1120 written=1822
+                                            ->  Subquery Scan on reviews  (cost=13049.72..15812.31 rows=73535 width=114) (actual time=123.219..179.487 rows=98673 loops=2)
+                                                  Buffers: shared hit=3638, temp read=1120 written=1124
+                                                  ->  GroupAggregate  (cost=13049.72..15076.96 rows=73535 width=114) (actual time=123.216..174.162 rows=98673 loops=2)
+                                                        Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                        Buffers: shared hit=3638, temp read=1120 written=1124
+                                                        ->  Sort  (cost=13049.72..13235.23 rows=74206 width=84) (actual time=123.189..143.004 rows=99224 loops=2)
+                                                              Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                              Sort Method: external merge  Disk: 4480kB
+                                                              Buffers: shared hit=3638, temp read=1120 written=1124
+                                                              Worker 0:  Sort Method: external merge  Disk: 4480kB
+                                                              ->  Seq Scan on order_reviews  (cost=0.00..3494.23 rows=74206 width=84) (actual time=0.021..37.825 rows=99224 loops=2)
+                                                                    Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                    Buffers: shared hit=3638
+Planning Time: 0.379 ms
+JIT:
+  Functions: 108
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 4.157 ms, Inlining 52.767 ms, Optimization 351.234 ms, Emission 252.233 ms, Total 660.391 ms
+Execution Time: 1260.867 ms
+
+seller_performance / defaults
+SQL: select * from analytics.mart_seller_performance
+        where seller_id = :seller_id
+Parameters: {"limit": 100, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [621.291, 620.351, 620.532]; median: 620.532
+HashAggregate  (cost=4242248.44..4242248.48 rows=1 width=334) (actual time=627.845..627.876 rows=1 loops=1)
+  Group Key: ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+  Batches: 1  Memory Usage: 24kB
+  Buffers: shared hit=6021, temp read=2056 written=2061
+  ->  Hash Left Join  (cost=38317.50..68388.04 rows=111302944 width=250) (actual time=586.940..627.391 rows=1124 loops=1)
+        Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+        Buffers: shared hit=6021, temp read=2056 written=2061
+        ->  Merge Join  (cost=20293.00..27446.42 rows=302721 width=251) (actual time=405.832..442.716 rows=1124 loops=1)
+              Merge Cond: ((((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32)))::text = (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text))
+              Buffers: shared hit=4202, temp read=1136 written=1139
+              ->  Nested Loop  (cost=5375.18..5467.05 rows=620 width=280) (actual time=292.870..294.077 rows=1132 loops=1)
+                    Buffers: shared hit=2487
+                    ->  Finalize GroupAggregate  (cost=5248.28..5326.19 rows=620 width=236) (actual time=291.921..292.924 rows=1132 loops=1)
+                          Group Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                          Buffers: shared hit=2454
+                          ->  Gather Merge  (cost=5248.28..5302.12 rows=365 width=187) (actual time=291.903..292.035 rows=1132 loops=1)
+                                Workers Planned: 1
+                                Workers Launched: 1
+                                Buffers: shared hit=2454
+                                ->  Partial GroupAggregate  (cost=4248.27..4261.05 rows=365 width=187) (actual time=219.638..220.081 rows=566 loops=2)
+                                      Group Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                      Buffers: shared hit=2454
+                                      ->  Sort  (cost=4248.27..4249.18 rows=365 width=127) (actual time=219.628..219.650 rows=578 loops=2)
+                                            Sort Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                            Sort Method: quicksort  Memory: 25kB
+                                            Buffers: shared hit=2454
+                                            Worker 0:  Sort Method: quicksort  Memory: 166kB
+                                            ->  Parallel Seq Scan on order_items  (cost=0.00..4232.74 rows=365 width=127) (actual time=200.884..219.495 rows=578 loops=2)
+                                                  Filter: ((NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL) AND (((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32))::text = '4869f7a5dfa277a7dca6462dcf3b52b2'::text))
+                                                  Rows Removed by Filter: 55747
+                                                  Buffers: shared hit=2397
+                    ->  Materialize  (cost=126.90..126.91 rows=1 width=126) (actual time=0.001..0.001 rows=1 loops=1132)
+                          Buffers: shared hit=33
+                          ->  Limit  (cost=126.90..126.90 rows=1 width=126) (actual time=0.945..0.946 rows=1 loops=1)
+                                Buffers: shared hit=33
+                                ->  Sort  (cost=126.90..126.94 rows=17 width=126) (actual time=0.943..0.944 rows=1 loops=1)
+                                      Sort Key: ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                                      Sort Method: quicksort  Memory: 25kB
+                                      Buffers: shared hit=33
+                                      ->  Seq Scan on sellers  (cost=0.00..126.81 rows=17 width=126) (actual time=0.797..0.937 rows=1 loops=1)
+                                            Filter: (((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32) IS NOT NULL) AND (((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32))::text = '4869f7a5dfa277a7dca6462dcf3b52b2'::text))
+                                            Rows Removed by Filter: 3094
+                                            Buffers: shared hit=33
+              ->  Materialize  (cost=14917.82..15406.08 rows=97652 width=53) (actual time=112.907..139.483 rows=96443 loops=1)
+                    Buffers: shared hit=1715, temp read=1136 written=1139
+                    ->  Sort  (cost=14917.82..15161.95 rows=97652 width=53) (actual time=112.905..133.048 rows=96443 loops=1)
+                          Sort Key: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text)
+                          Sort Method: external merge  Disk: 9088kB
+                          Buffers: shared hit=1715, temp read=1136 written=1139
+                          ->  Seq Scan on orders  (cost=0.00..3485.74 rows=97652 width=53) (actual time=0.006..32.164 rows=96478 loops=1)
+                                Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                Rows Removed by Filter: 2963
+                                Buffers: shared hit=1715
+        ->  Hash  (cost=15812.31..15812.31 rows=73535 width=114) (actual time=180.818..180.819 rows=98673 loops=1)
+              Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+              Buffers: shared hit=1819, temp read=560 written=911
+              ->  Subquery Scan on reviews  (cost=13049.72..15812.31 rows=73535 width=114) (actual time=114.026..167.815 rows=98673 loops=1)
+                    Buffers: shared hit=1819, temp read=560 written=562
+                    ->  GroupAggregate  (cost=13049.72..15076.96 rows=73535 width=114) (actual time=114.023..162.787 rows=98673 loops=1)
+                          Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                          Buffers: shared hit=1819, temp read=560 written=562
+                          ->  Sort  (cost=13049.72..13235.23 rows=74206 width=84) (actual time=113.999..132.822 rows=99224 loops=1)
+                                Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                Sort Method: external merge  Disk: 4480kB
+                                Buffers: shared hit=1819, temp read=560 written=562
+                                ->  Seq Scan on order_reviews  (cost=0.00..3494.23 rows=74206 width=84) (actual time=0.010..32.781 rows=99224 loops=1)
+                                      Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                      Buffers: shared hit=1819
+Planning Time: 0.360 ms
+JIT:
+  Functions: 57
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 2.320 ms, Inlining 51.371 ms, Optimization 199.460 ms, Emission 150.944 ms, Total 404.096 ms
+Execution Time: 630.858 ms
+
+seller_performance / index_scans_disabled
+SQL: select * from analytics.mart_seller_performance
+        where seller_id = :seller_id
+Parameters: {"limit": 100, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [621.264, 623.681, 622.643]; median: 622.643
+HashAggregate  (cost=4242248.44..4242248.48 rows=1 width=334) (actual time=625.064..625.097 rows=1 loops=1)
+  Group Key: ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+  Batches: 1  Memory Usage: 24kB
+  Buffers: shared hit=6021, temp read=2056 written=2061
+  ->  Hash Left Join  (cost=38317.50..68388.04 rows=111302944 width=250) (actual time=582.871..624.608 rows=1124 loops=1)
+        Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+        Buffers: shared hit=6021, temp read=2056 written=2061
+        ->  Merge Join  (cost=20293.00..27446.42 rows=302721 width=251) (actual time=399.734..437.683 rows=1124 loops=1)
+              Merge Cond: ((((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32)))::text = (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text))
+              Buffers: shared hit=4202, temp read=1136 written=1139
+              ->  Nested Loop  (cost=5375.18..5467.05 rows=620 width=280) (actual time=285.722..286.935 rows=1132 loops=1)
+                    Buffers: shared hit=2487
+                    ->  Finalize GroupAggregate  (cost=5248.28..5326.19 rows=620 width=236) (actual time=284.771..285.780 rows=1132 loops=1)
+                          Group Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                          Buffers: shared hit=2454
+                          ->  Gather Merge  (cost=5248.28..5302.12 rows=365 width=187) (actual time=284.753..284.887 rows=1132 loops=1)
+                                Workers Planned: 1
+                                Workers Launched: 1
+                                Buffers: shared hit=2454
+                                ->  Partial GroupAggregate  (cost=4248.27..4261.05 rows=365 width=187) (actual time=214.796..215.234 rows=566 loops=2)
+                                      Group Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                      Buffers: shared hit=2454
+                                      ->  Sort  (cost=4248.27..4249.18 rows=365 width=127) (actual time=214.786..214.807 rows=578 loops=2)
+                                            Sort Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                            Sort Method: quicksort  Memory: 25kB
+                                            Buffers: shared hit=2454
+                                            Worker 0:  Sort Method: quicksort  Memory: 166kB
+                                            ->  Parallel Seq Scan on order_items  (cost=0.00..4232.74 rows=365 width=127) (actual time=196.078..214.660 rows=578 loops=2)
+                                                  Filter: ((NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL) AND (((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32))::text = '4869f7a5dfa277a7dca6462dcf3b52b2'::text))
+                                                  Rows Removed by Filter: 55747
+                                                  Buffers: shared hit=2397
+                    ->  Materialize  (cost=126.90..126.91 rows=1 width=126) (actual time=0.001..0.001 rows=1 loops=1132)
+                          Buffers: shared hit=33
+                          ->  Limit  (cost=126.90..126.90 rows=1 width=126) (actual time=0.946..0.947 rows=1 loops=1)
+                                Buffers: shared hit=33
+                                ->  Sort  (cost=126.90..126.94 rows=17 width=126) (actual time=0.944..0.944 rows=1 loops=1)
+                                      Sort Key: ((NULLIF(btrim((sellers.seller_city)::text), ''::text))::character varying), ((NULLIF(btrim((sellers.seller_state)::text), ''::text))::character varying(2))
+                                      Sort Method: quicksort  Memory: 25kB
+                                      Buffers: shared hit=33
+                                      ->  Seq Scan on sellers  (cost=0.00..126.81 rows=17 width=126) (actual time=0.796..0.939 rows=1 loops=1)
+                                            Filter: (((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32) IS NOT NULL) AND (((NULLIF(btrim((seller_id)::text), ''::text))::character varying(32))::text = '4869f7a5dfa277a7dca6462dcf3b52b2'::text))
+                                            Rows Removed by Filter: 3094
+                                            Buffers: shared hit=33
+              ->  Materialize  (cost=14917.82..15406.08 rows=97652 width=53) (actual time=113.953..141.233 rows=96443 loops=1)
+                    Buffers: shared hit=1715, temp read=1136 written=1139
+                    ->  Sort  (cost=14917.82..15161.95 rows=97652 width=53) (actual time=113.951..134.471 rows=96443 loops=1)
+                          Sort Key: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text)
+                          Sort Method: external merge  Disk: 9088kB
+                          Buffers: shared hit=1715, temp read=1136 written=1139
+                          ->  Seq Scan on orders  (cost=0.00..3485.74 rows=97652 width=53) (actual time=0.007..32.482 rows=96478 loops=1)
+                                Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                Rows Removed by Filter: 2963
+                                Buffers: shared hit=1715
+        ->  Hash  (cost=15812.31..15812.31 rows=73535 width=114) (actual time=182.826..182.827 rows=98673 loops=1)
+              Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+              Buffers: shared hit=1819, temp read=560 written=911
+              ->  Subquery Scan on reviews  (cost=13049.72..15812.31 rows=73535 width=114) (actual time=115.514..169.613 rows=98673 loops=1)
+                    Buffers: shared hit=1819, temp read=560 written=562
+                    ->  GroupAggregate  (cost=13049.72..15076.96 rows=73535 width=114) (actual time=115.512..164.592 rows=98673 loops=1)
+                          Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                          Buffers: shared hit=1819, temp read=560 written=562
+                          ->  Sort  (cost=13049.72..13235.23 rows=74206 width=84) (actual time=115.487..134.423 rows=99224 loops=1)
+                                Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                Sort Method: external merge  Disk: 4480kB
+                                Buffers: shared hit=1819, temp read=560 written=562
+                                ->  Seq Scan on order_reviews  (cost=0.00..3494.23 rows=74206 width=84) (actual time=0.013..33.500 rows=99224 loops=1)
+                                      Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                      Buffers: shared hit=1819
+Planning Time: 0.410 ms
+JIT:
+  Functions: 57
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 2.588 ms, Inlining 49.930 ms, Optimization 200.329 ms, Emission 141.911 ms, Total 394.759 ms
+Execution Time: 628.532 ms
+
+category_performance / defaults
+SQL: select * from analytics.mart_category_performance
+        order by total_revenue desc, product_category
+        limit :limit
+Parameters: {"limit": 100, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [1461.229, 1450.639, 1470.65]; median: 1461.229
+Limit  (cost=350712575.33..350712575.58 rows=100 width=176) (actual time=1473.451..1479.404 rows=74 loops=1)
+  Buffers: shared hit=10998, temp read=8304 written=8323
+  ->  Sort  (cost=350712575.33..350712575.83 rows=200 width=176) (actual time=1088.675..1094.623 rows=74 loops=1)
+        Sort Key: (COALESCE(sum(co.revenue), '0'::numeric)) DESC, co.product_category
+        Sort Method: quicksort  Memory: 34kB
+        Buffers: shared hit=10998, temp read=8304 written=8323
+        ->  Finalize GroupAggregate  (cost=350712531.19..350712567.69 rows=200 width=176) (actual time=1088.426..1094.567 rows=74 loops=1)
+              Group Key: co.product_category
+              Buffers: shared hit=10998, temp read=8304 written=8323
+              ->  Gather Merge  (cost=350712531.19..350712554.19 rows=200 width=200) (actual time=1088.393..1094.362 rows=97 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=10998, temp read=8304 written=8323
+                    ->  Sort  (cost=350711531.18..350711531.68 rows=200 width=200) (actual time=991.469..991.482 rows=48 loops=2)
+                          Sort Key: co.product_category
+                          Sort Method: quicksort  Memory: 46kB
+                          Buffers: shared hit=10998, temp read=8304 written=8323
+                          Worker 0:  Sort Method: quicksort  Memory: 31kB
+                          ->  Partial HashAggregate  (cost=350711519.03..350711523.53 rows=200 width=200) (actual time=991.416..991.445 rows=48 loops=2)
+                                Group Key: co.product_category
+                                Batches: 1  Memory Usage: 160kB
+                                Buffers: shared hit=10993, temp read=8304 written=8323
+                                Worker 0:  Batches: 1  Memory Usage: 64kB
+                                ->  Hash Left Join  (cost=86087.90..2134899.13 rows=15492294218 width=132) (actual time=890.197..981.806 rows=48638 loops=2)
+                                      Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+                                      Buffers: shared hit=10993, temp read=8304 written=8323
+                                      ->  Merge Join  (cost=62503.74..775753.87 rows=31656336 width=133) (actual time=700.381..760.568 rows=48638 loops=2)
+                                            Merge Cond: ((((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text) = (co.order_id)::text)
+                                            Buffers: shared hit=7355, temp read=5807 written=5822
+                                            ->  Sort  (cost=9128.90..9270.11 rows=56485 width=53) (actual time=258.308..269.496 rows=48239 loops=2)
+                                                  Sort Key: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text)
+                                                  Sort Method: external merge  Disk: 9080kB
+                                                  Buffers: shared hit=1715, temp read=1135 written=1138
+                                                  Worker 0:  Sort Method: quicksort  Memory: 31kB
+                                                  ->  Parallel Seq Scan on orders  (cost=0.00..2738.66 rows=56485 width=53) (actual time=200.156..216.241 rows=48239 loops=2)
+                                                        Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                                        Rows Removed by Filter: 1482
+                                                        Buffers: shared hit=1715
+                                            ->  Materialize  (cost=53374.84..53935.28 rows=112087 width=162) (actual time=441.868..471.549 rows=99286 loops=2)
+                                                  Buffers: shared hit=5640, temp read=4672 written=4684
+                                                  ->  Sort  (cost=53374.84..53655.06 rows=112087 width=162) (actual time=441.865..464.655 rows=99286 loops=2)
+                                                        Sort Key: co.order_id
+                                                        Sort Method: external merge  Disk: 8160kB
+                                                        Buffers: shared hit=5640, temp read=4672 written=4684
+                                                        Worker 0:  Sort Method: external merge  Disk: 8160kB
+                                                        ->  Subquery Scan on co  (cost=29732.05..34775.96 rows=112087 width=162) (actual time=292.714..356.573 rows=99470 loops=2)
+                                                              Buffers: shared hit=5640, temp read=2632 written=2638
+                                                              ->  GroupAggregate  (cost=29732.05..33655.09 rows=112087 width=162) (actual time=292.712..351.198 rows=99470 loops=2)
+                                                                    Group Key: (COALESCE(p.product_category_name, 'unknown'::character varying)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                    Buffers: shared hit=5640, temp read=2632 written=2638
+                                                                    ->  Sort  (cost=29732.05..30012.26 rows=112087 width=120) (actual time=292.685..311.357 rows=112650 loops=2)
+                                                                          Sort Key: (COALESCE(p.product_category_name, 'unknown'::character varying)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                          Sort Method: external merge  Disk: 7000kB
+                                                                          Buffers: shared hit=5640, temp read=2632 written=2638
+                                                                          Worker 0:  Sort Method: external merge  Disk: 7000kB
+                                                                          ->  Hash Left Join  (cost=8168.96..13432.66 rows=112087 width=120) (actual time=72.737..167.311 rows=112650 loops=2)
+                                                                                Hash Cond: (((NULLIF(btrim((order_items.product_id)::text), ''::text))::character varying(32))::text = (p.product_id)::text)
+                                                                                Buffers: shared hit=5640, temp read=882 written=884
+                                                                                ->  Seq Scan on order_items  (cost=0.00..4086.75 rows=112087 width=72) (actual time=0.015..23.716 rows=112650 loops=2)
+                                                                                      Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                                      Buffers: shared hit=4794
+                                                                                ->  Hash  (cost=7759.13..7759.13 rows=32786 width=114) (actual time=72.596..72.599 rows=32951 loops=2)
+                                                                                      Buckets: 65536  Batches: 1  Memory Usage: 3045kB
+                                                                                      Buffers: shared hit=846, temp read=882 written=884
+                                                                                      ->  Subquery Scan on p  (cost=7267.34..7759.13 rows=32786 width=114) (actual time=57.220..67.203 rows=32951 loops=2)
+                                                                                            Buffers: shared hit=846, temp read=882 written=884
+                                                                                            ->  Unique  (cost=7267.34..7431.27 rows=32786 width=200) (actual time=57.200..64.983 rows=32951 loops=2)
+                                                                                                  Buffers: shared hit=846, temp read=882 written=884
+                                                                                                  ->  Sort  (cost=7267.34..7349.31 rows=32786 width=200) (actual time=57.198..61.829 rows=32951 loops=2)
+                                                                                                        Sort Key: ((NULLIF(btrim((products.product_id)::text), ''::text))::character varying(32)), ct.product_category_name_english, ((NULLIF(btrim((products.product_category_name)::text), ''::text))::character varying), products.product_name_lenght, products.product_description_lenght, products.product_photos_qty, products.product_weight_g, products.product_length_cm, products.product_height_cm, products.product_width_cm
+                                                                                                        Sort Method: external merge  Disk: 3528kB
+                                                                                                        Buffers: shared hit=846, temp read=882 written=884
+                                                                                                        Worker 0:  Sort Method: external merge  Disk: 3528kB
+                                                                                                        ->  Hash Left Join  (cost=6.91..1668.76 rows=32786 width=200) (actual time=0.117..24.240 rows=32951 loops=2)
+                                                                                                              Hash Cond: (NULLIF(btrim((products.product_category_name)::text), ''::text) = (ct.product_category_name)::text)
+                                                                                                              Buffers: shared hit=832
+                                                                                                              ->  Seq Scan on products  (cost=0.00..991.64 rows=32786 width=70) (actual time=0.011..6.619 rows=32951 loops=2)
+                                                                                                                    Filter: ((NULLIF(btrim((product_id)::text), ''::text))::character varying(32) IS NOT NULL)
+                                                                                                                    Buffers: shared hit=830
+                                                                                                              ->  Hash  (cost=6.02..6.02 rows=71 width=64) (actual time=0.097..0.099 rows=71 loops=2)
+                                                                                                                    Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                                                                                                                    Buffers: shared hit=2
+                                                                                                                    ->  Subquery Scan on ct  (cost=4.96..6.02 rows=71 width=64) (actual time=0.070..0.086 rows=71 loops=2)
+                                                                                                                          Buffers: shared hit=2
+                                                                                                                          ->  Unique  (cost=4.96..5.31 rows=71 width=64) (actual time=0.068..0.080 rows=71 loops=2)
+                                                                                                                                Buffers: shared hit=2
+                                                                                                                                ->  Sort  (cost=4.96..5.14 rows=71 width=64) (actual time=0.068..0.070 rows=71 loops=2)
+                                                                                                                                      Sort Key: ((NULLIF(btrim((category_translation.product_category_name)::text), ''::text))::character varying), ((NULLIF(btrim((category_translation.product_category_name_english)::text), ''::text))::character varying)
+                                                                                                                                      Sort Method: quicksort  Memory: 29kB
+                                                                                                                                      Buffers: shared hit=2
+                                                                                                                                      Worker 0:  Sort Method: quicksort  Memory: 29kB
+                                                                                                                                      ->  Seq Scan on category_translation  (cost=0.00..2.77 rows=71 width=64) (actual time=0.010..0.034 rows=71 loops=2)
+                                                                                                                                            Filter: ((NULLIF(btrim((product_category_name)::text), ''::text))::character varying IS NOT NULL)
+                                                                                                                                            Buffers: shared hit=2
+                                      ->  Hash  (cost=20639.69..20639.69 rows=97878 width=114) (actual time=189.669..189.671 rows=98673 loops=2)
+                                            Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+                                            Buffers: shared hit=3638, temp read=1120 written=1822
+                                            ->  Subquery Scan on reviews  (cost=16962.89..20639.69 rows=97878 width=114) (actual time=121.278..176.154 rows=98673 loops=2)
+                                                  Buffers: shared hit=3638, temp read=1120 written=1124
+                                                  ->  GroupAggregate  (cost=16962.89..19660.91 rows=97878 width=114) (actual time=121.276..171.110 rows=98673 loops=2)
+                                                        Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                        Buffers: shared hit=3638, temp read=1120 written=1124
+                                                        ->  Sort  (cost=16962.89..17209.71 rows=98728 width=84) (actual time=121.249..140.926 rows=99224 loops=2)
+                                                              Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                              Sort Method: external merge  Disk: 4480kB
+                                                              Buffers: shared hit=3638, temp read=1120 written=1124
+                                                              Worker 0:  Sort Method: external merge  Disk: 4480kB
+                                                              ->  Seq Scan on order_reviews  (cost=0.00..4047.82 rows=98728 width=84) (actual time=0.020..35.756 rows=99224 loops=2)
+                                                                    Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                    Buffers: shared hit=3638
+Planning:
+  Buffers: shared hit=185
+Planning Time: 0.681 ms
+JIT:
+  Functions: 142
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 4.973 ms, Inlining 51.603 ms, Optimization 422.567 ms, Emission 311.206 ms, Total 790.349 ms
+Execution Time: 1484.640 ms
+
+category_performance / index_scans_disabled
+SQL: select * from analytics.mart_category_performance
+        order by total_revenue desc, product_category
+        limit :limit
+Parameters: {"limit": 100, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [1454.49, 1455.143, 1446.818]; median: 1454.49
+Limit  (cost=350712575.33..350712575.58 rows=100 width=176) (actual time=1447.167..1453.251 rows=74 loops=1)
+  Buffers: shared hit=10998, temp read=8304 written=8323
+  ->  Sort  (cost=350712575.33..350712575.83 rows=200 width=176) (actual time=1065.862..1071.942 rows=74 loops=1)
+        Sort Key: (COALESCE(sum(co.revenue), '0'::numeric)) DESC, co.product_category
+        Sort Method: quicksort  Memory: 34kB
+        Buffers: shared hit=10998, temp read=8304 written=8323
+        ->  Finalize GroupAggregate  (cost=350712531.19..350712567.69 rows=200 width=176) (actual time=1065.603..1071.889 rows=74 loops=1)
+              Group Key: co.product_category
+              Buffers: shared hit=10998, temp read=8304 written=8323
+              ->  Gather Merge  (cost=350712531.19..350712554.19 rows=200 width=200) (actual time=1065.571..1071.672 rows=97 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=10998, temp read=8304 written=8323
+                    ->  Sort  (cost=350711531.18..350711531.68 rows=200 width=200) (actual time=968.331..968.343 rows=48 loops=2)
+                          Sort Key: co.product_category
+                          Sort Method: quicksort  Memory: 46kB
+                          Buffers: shared hit=10998, temp read=8304 written=8323
+                          Worker 0:  Sort Method: quicksort  Memory: 31kB
+                          ->  Partial HashAggregate  (cost=350711519.03..350711523.53 rows=200 width=200) (actual time=968.279..968.308 rows=48 loops=2)
+                                Group Key: co.product_category
+                                Batches: 1  Memory Usage: 160kB
+                                Buffers: shared hit=10993, temp read=8304 written=8323
+                                Worker 0:  Batches: 1  Memory Usage: 64kB
+                                ->  Hash Left Join  (cost=86087.90..2134899.13 rows=15492294218 width=132) (actual time=866.704..958.648 rows=48638 loops=2)
+                                      Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+                                      Buffers: shared hit=10993, temp read=8304 written=8323
+                                      ->  Merge Join  (cost=62503.74..775753.87 rows=31656336 width=133) (actual time=682.706..743.492 rows=48638 loops=2)
+                                            Merge Cond: ((((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text) = (co.order_id)::text)
+                                            Buffers: shared hit=7355, temp read=5807 written=5822
+                                            ->  Sort  (cost=9128.90..9270.11 rows=56485 width=53) (actual time=258.395..269.806 rows=48239 loops=2)
+                                                  Sort Key: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text)
+                                                  Sort Method: external merge  Disk: 9080kB
+                                                  Buffers: shared hit=1715, temp read=1135 written=1138
+                                                  Worker 0:  Sort Method: quicksort  Memory: 31kB
+                                                  ->  Parallel Seq Scan on orders  (cost=0.00..2738.66 rows=56485 width=53) (actual time=201.350..217.299 rows=48239 loops=2)
+                                                        Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                                        Rows Removed by Filter: 1482
+                                                        Buffers: shared hit=1715
+                                            ->  Materialize  (cost=53374.84..53935.28 rows=112087 width=162) (actual time=424.103..454.001 rows=99286 loops=2)
+                                                  Buffers: shared hit=5640, temp read=4672 written=4684
+                                                  ->  Sort  (cost=53374.84..53655.06 rows=112087 width=162) (actual time=424.100..447.066 rows=99286 loops=2)
+                                                        Sort Key: co.order_id
+                                                        Sort Method: external merge  Disk: 8160kB
+                                                        Buffers: shared hit=5640, temp read=4672 written=4684
+                                                        Worker 0:  Sort Method: external merge  Disk: 8160kB
+                                                        ->  Subquery Scan on co  (cost=29732.05..34775.96 rows=112087 width=162) (actual time=277.732..339.990 rows=99470 loops=2)
+                                                              Buffers: shared hit=5640, temp read=2632 written=2638
+                                                              ->  GroupAggregate  (cost=29732.05..33655.09 rows=112087 width=162) (actual time=277.730..334.777 rows=99470 loops=2)
+                                                                    Group Key: (COALESCE(p.product_category_name, 'unknown'::character varying)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                    Buffers: shared hit=5640, temp read=2632 written=2638
+                                                                    ->  Sort  (cost=29732.05..30012.26 rows=112087 width=120) (actual time=277.704..295.928 rows=112650 loops=2)
+                                                                          Sort Key: (COALESCE(p.product_category_name, 'unknown'::character varying)), ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                                          Sort Method: external merge  Disk: 7000kB
+                                                                          Buffers: shared hit=5640, temp read=2632 written=2638
+                                                                          Worker 0:  Sort Method: external merge  Disk: 7000kB
+                                                                          ->  Hash Left Join  (cost=8168.96..13432.66 rows=112087 width=120) (actual time=68.882..158.137 rows=112650 loops=2)
+                                                                                Hash Cond: (((NULLIF(btrim((order_items.product_id)::text), ''::text))::character varying(32))::text = (p.product_id)::text)
+                                                                                Buffers: shared hit=5640, temp read=882 written=884
+                                                                                ->  Seq Scan on order_items  (cost=0.00..4086.75 rows=112087 width=72) (actual time=0.015..23.161 rows=112650 loops=2)
+                                                                                      Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                                      Buffers: shared hit=4794
+                                                                                ->  Hash  (cost=7759.13..7759.13 rows=32786 width=114) (actual time=68.753..68.756 rows=32951 loops=2)
+                                                                                      Buckets: 65536  Batches: 1  Memory Usage: 3045kB
+                                                                                      Buffers: shared hit=846, temp read=882 written=884
+                                                                                      ->  Subquery Scan on p  (cost=7267.34..7759.13 rows=32786 width=114) (actual time=55.880..64.402 rows=32951 loops=2)
+                                                                                            Buffers: shared hit=846, temp read=882 written=884
+                                                                                            ->  Unique  (cost=7267.34..7431.27 rows=32786 width=200) (actual time=55.865..62.497 rows=32951 loops=2)
+                                                                                                  Buffers: shared hit=846, temp read=882 written=884
+                                                                                                  ->  Sort  (cost=7267.34..7349.31 rows=32786 width=200) (actual time=55.864..59.789 rows=32951 loops=2)
+                                                                                                        Sort Key: ((NULLIF(btrim((products.product_id)::text), ''::text))::character varying(32)), ct.product_category_name_english, ((NULLIF(btrim((products.product_category_name)::text), ''::text))::character varying), products.product_name_lenght, products.product_description_lenght, products.product_photos_qty, products.product_weight_g, products.product_length_cm, products.product_height_cm, products.product_width_cm
+                                                                                                        Sort Method: external merge  Disk: 3528kB
+                                                                                                        Buffers: shared hit=846, temp read=882 written=884
+                                                                                                        Worker 0:  Sort Method: external merge  Disk: 3528kB
+                                                                                                        ->  Hash Left Join  (cost=6.91..1668.76 rows=32786 width=200) (actual time=0.113..23.943 rows=32951 loops=2)
+                                                                                                              Hash Cond: (NULLIF(btrim((products.product_category_name)::text), ''::text) = (ct.product_category_name)::text)
+                                                                                                              Buffers: shared hit=832
+                                                                                                              ->  Seq Scan on products  (cost=0.00..991.64 rows=32786 width=70) (actual time=0.010..6.478 rows=32951 loops=2)
+                                                                                                                    Filter: ((NULLIF(btrim((product_id)::text), ''::text))::character varying(32) IS NOT NULL)
+                                                                                                                    Buffers: shared hit=830
+                                                                                                              ->  Hash  (cost=6.02..6.02 rows=71 width=64) (actual time=0.094..0.095 rows=71 loops=2)
+                                                                                                                    Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                                                                                                                    Buffers: shared hit=2
+                                                                                                                    ->  Subquery Scan on ct  (cost=4.96..6.02 rows=71 width=64) (actual time=0.068..0.083 rows=71 loops=2)
+                                                                                                                          Buffers: shared hit=2
+                                                                                                                          ->  Unique  (cost=4.96..5.31 rows=71 width=64) (actual time=0.066..0.077 rows=71 loops=2)
+                                                                                                                                Buffers: shared hit=2
+                                                                                                                                ->  Sort  (cost=4.96..5.14 rows=71 width=64) (actual time=0.065..0.068 rows=71 loops=2)
+                                                                                                                                      Sort Key: ((NULLIF(btrim((category_translation.product_category_name)::text), ''::text))::character varying), ((NULLIF(btrim((category_translation.product_category_name_english)::text), ''::text))::character varying)
+                                                                                                                                      Sort Method: quicksort  Memory: 29kB
+                                                                                                                                      Buffers: shared hit=2
+                                                                                                                                      Worker 0:  Sort Method: quicksort  Memory: 29kB
+                                                                                                                                      ->  Seq Scan on category_translation  (cost=0.00..2.77 rows=71 width=64) (actual time=0.009..0.033 rows=71 loops=2)
+                                                                                                                                            Filter: ((NULLIF(btrim((product_category_name)::text), ''::text))::character varying IS NOT NULL)
+                                                                                                                                            Buffers: shared hit=2
+                                      ->  Hash  (cost=20639.69..20639.69 rows=97878 width=114) (actual time=183.871..183.873 rows=98673 loops=2)
+                                            Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+                                            Buffers: shared hit=3638, temp read=1120 written=1822
+                                            ->  Subquery Scan on reviews  (cost=16962.89..20639.69 rows=97878 width=114) (actual time=116.456..170.802 rows=98673 loops=2)
+                                                  Buffers: shared hit=3638, temp read=1120 written=1124
+                                                  ->  GroupAggregate  (cost=16962.89..19660.91 rows=97878 width=114) (actual time=116.454..165.782 rows=98673 loops=2)
+                                                        Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                        Buffers: shared hit=3638, temp read=1120 written=1124
+                                                        ->  Sort  (cost=16962.89..17209.71 rows=98728 width=84) (actual time=116.428..135.729 rows=99224 loops=2)
+                                                              Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                              Sort Method: external merge  Disk: 4480kB
+                                                              Buffers: shared hit=3638, temp read=1120 written=1124
+                                                              Worker 0:  Sort Method: external merge  Disk: 4480kB
+                                                              ->  Seq Scan on order_reviews  (cost=0.00..4047.82 rows=98728 width=84) (actual time=0.016..33.014 rows=99224 loops=2)
+                                                                    Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                    Buffers: shared hit=3638
+Planning Time: 0.520 ms
+JIT:
+  Functions: 142
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 4.800 ms, Inlining 54.388 ms, Optimization 421.522 ms, Emission 308.331 ms, Total 789.041 ms
+Execution Time: 1459.018 ms
+
+state_performance / defaults
+SQL: select
+            c.customer_state,
+            count(*) as total_orders,
+            coalesce(sum(ot.revenue), 0) as total_revenue,
+            round(avg(ot.revenue + ot.freight), 2) as avg_ticket,
+            round(avg(fo.avg_review_score), 2) as avg_review_score
+        from analytics.dim_customers as c
+        inner join analytics.fact_orders as fo on c.customer_id = fo.customer_id
+        inner join silver.order_item_summary as ot on fo.order_id = ot.order_id
+        where fo.is_delivered
+        group by c.customer_state
+        order by total_revenue desc, c.customer_state nulls last
+        limit :limit
+Parameters: {"limit": 100, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [1092.802, 1095.967, 1097.16]; median: 1095.967
+Limit  (cost=183752276.13..183752276.38 rows=100 width=116) (actual time=1073.314..1078.960 rows=27 loops=1)
+  Buffers: shared hit=13055, temp read=8845 written=8859
+  ->  Sort  (cost=183752276.13..183752276.63 rows=200 width=116) (actual time=814.804..820.448 rows=27 loops=1)
+        Sort Key: (COALESCE(sum(ot.revenue), '0'::numeric)) DESC, c.customer_state
+        Sort Method: quicksort  Memory: 26kB
+        Buffers: shared hit=13055, temp read=8845 written=8859
+        ->  Finalize GroupAggregate  (cost=183752236.98..183752268.48 rows=200 width=116) (actual time=814.720..820.424 rows=27 loops=1)
+              Group Key: c.customer_state
+              Buffers: shared hit=13055, temp read=8845 written=8859
+              ->  Gather Merge  (cost=183752236.98..183752259.98 rows=200 width=116) (actual time=814.692..820.343 rows=38 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=13055, temp read=8845 written=8859
+                    ->  Sort  (cost=183751236.97..183751237.47 rows=200 width=116) (actual time=755.725..755.733 rows=19 loops=2)
+                          Sort Key: c.customer_state
+                          Sort Method: quicksort  Memory: 31kB
+                          Buffers: shared hit=13055, temp read=8845 written=8859
+                          Worker 0:  Sort Method: quicksort  Memory: 27kB
+                          ->  Partial HashAggregate  (cost=183751225.83..183751229.33 rows=200 width=116) (actual time=755.703..755.716 rows=19 loops=2)
+                                Group Key: c.customer_state
+                                Batches: 1  Memory Usage: 64kB
+                                Buffers: shared hit=13047, temp read=8845 written=8859
+                                Worker 0:  Batches: 1  Memory Usage: 48kB
+                                ->  Hash Join  (cost=78747.81..876030.64 rows=12191679679 width=108) (actual time=649.647..745.637 rows=48239 loops=2)
+                                      Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (ot.order_id)::text)
+                                      Buffers: shared hit=13047, temp read=8845 written=8859
+                                      ->  Hash Left Join  (cost=51686.34..60257.01 rows=27643338 width=77) (actual time=372.688..438.320 rows=48239 loops=2)
+                                            Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+                                            Buffers: shared hit=8253, temp read=5538 written=5548
+                                            ->  Hash Join  (cost=28102.18..33784.31 rows=56485 width=45) (actual time=190.800..228.830 rows=48239 loops=2)
+                                                  Hash Cond: (((NULLIF(btrim((orders.customer_id)::text), ''::text))::character varying(32))::text = (c.customer_id)::text)
+                                                  Buffers: shared hit=4615, temp read=3386 written=3392
+                                                  ->  Parallel Seq Scan on orders  (cost=0.00..2738.66 rows=56485 width=66) (actual time=0.023..9.974 rows=48239 loops=2)
+                                                        Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                                        Rows Removed by Filter: 1482
+                                                        Buffers: shared hit=1715
+                                                  ->  Hash  (cost=25415.38..25415.38 rows=98944 width=94) (actual time=190.737..190.739 rows=99441 loops=2)
+                                                        Buckets: 65536  Batches: 2  Memory Usage: 3818kB
+                                                        Buffers: shared hit=2900, temp read=2200 written=2884
+                                                        ->  Subquery Scan on c  (cost=23931.22..25415.38 rows=98944 width=94) (actual time=143.563..178.633 rows=99441 loops=2)
+                                                              Buffers: shared hit=2900, temp read=2200 written=2206
+                                                              ->  Unique  (cost=23931.22..24425.94 rows=98944 width=208) (actual time=143.549..172.543 rows=99441 loops=2)
+                                                                    Buffers: shared hit=2900, temp read=2200 written=2206
+                                                                    ->  Sort  (cost=23931.22..24178.58 rows=98944 width=208) (actual time=143.548..164.471 rows=99441 loops=2)
+                                                                          Sort Key: ((NULLIF(btrim((customers.customer_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((customers.customer_unique_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((customers.customer_city)::text), ''::text))::character varying), ((NULLIF(btrim((customers.customer_state)::text), ''::text))::character varying(2))
+                                                                          Sort Method: external merge  Disk: 8800kB
+                                                                          Buffers: shared hit=2900, temp read=2200 written=2206
+                                                                          Worker 0:  Sort Method: external merge  Disk: 8800kB
+                                                                          ->  Seq Scan on customers  (cost=0.00..5911.18 rows=98944 width=208) (actual time=0.016..60.477 rows=99441 loops=2)
+                                                                                Filter: ((NULLIF(btrim((customer_id)::text), ''::text))::character varying(32) IS NOT NULL)
+                                                                                Buffers: shared hit=2900
+                                            ->  Hash  (cost=20639.69..20639.69 rows=97878 width=114) (actual time=181.844..181.846 rows=98673 loops=2)
+                                                  Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+                                                  Buffers: shared hit=3638, temp read=1120 written=1822
+                                                  ->  Subquery Scan on reviews  (cost=16962.89..20639.69 rows=97878 width=114) (actual time=115.878..169.782 rows=98673 loops=2)
+                                                        Buffers: shared hit=3638, temp read=1120 written=1124
+                                                        ->  GroupAggregate  (cost=16962.89..19660.91 rows=97878 width=114) (actual time=115.876..164.716 rows=98673 loops=2)
+                                                              Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                              Buffers: shared hit=3638, temp read=1120 written=1124
+                                                              ->  Sort  (cost=16962.89..17209.71 rows=98728 width=84) (actual time=115.856..134.624 rows=99224 loops=2)
+                                                                    Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                                    Sort Method: external merge  Disk: 4480kB
+                                                                    Buffers: shared hit=3638, temp read=1120 written=1124
+                                                                    Worker 0:  Sort Method: external merge  Disk: 4480kB
+                                                                    ->  Seq Scan on order_reviews  (cost=0.00..4047.82 rows=98728 width=84) (actual time=0.019..33.129 rows=99224 loops=2)
+                                                                          Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                          Buffers: shared hit=3638
+                                      ->  Hash  (cost=24062.88..24062.88 rows=88207 width=146) (actual time=276.848..276.849 rows=98666 loops=2)
+                                            Buckets: 65536  Batches: 4  Memory Usage: 2390kB
+                                            Buffers: shared hit=4794, temp read=1558 written=2762
+                                            ->  Subquery Scan on ot  (cost=20075.28..24062.88 rows=88207 width=146) (actual time=200.872..262.457 rows=98666 loops=2)
+                                                  Buffers: shared hit=4794, temp read=1558 written=1562
+                                                  ->  GroupAggregate  (cost=20075.28..23180.81 rows=88207 width=146) (actual time=200.869..257.260 rows=98666 loops=2)
+                                                        Group Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                        Buffers: shared hit=4794, temp read=1558 written=1562
+                                                        ->  Sort  (cost=20075.28..20355.50 rows=112087 width=94) (actual time=200.845..211.983 rows=112650 loops=2)
+                                                              Sort Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                              Sort Method: external merge  Disk: 6232kB
+                                                              Buffers: shared hit=4794, temp read=1558 written=1562
+                                                              Worker 0:  Sort Method: external merge  Disk: 6232kB
+                                                              ->  Seq Scan on order_items  (cost=0.00..4927.40 rows=112087 width=94) (actual time=140.568..179.617 rows=112650 loops=2)
+                                                                    Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                    Buffers: shared hit=4794
+Planning Time: 0.359 ms
+JIT:
+  Functions: 110
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 3.730 ms, Inlining 50.530 ms, Optimization 280.215 ms, Emission 209.105 ms, Total 543.580 ms
+Execution Time: 1083.583 ms
+
+state_performance / index_scans_disabled
+SQL: select
+            c.customer_state,
+            count(*) as total_orders,
+            coalesce(sum(ot.revenue), 0) as total_revenue,
+            round(avg(ot.revenue + ot.freight), 2) as avg_ticket,
+            round(avg(fo.avg_review_score), 2) as avg_review_score
+        from analytics.dim_customers as c
+        inner join analytics.fact_orders as fo on c.customer_id = fo.customer_id
+        inner join silver.order_item_summary as ot on fo.order_id = ot.order_id
+        where fo.is_delivered
+        group by c.customer_state
+        order by total_revenue desc, c.customer_state nulls last
+        limit :limit
+Parameters: {"limit": 100, "seller_id": "4869f7a5dfa277a7dca6462dcf3b52b2"}
+Execution times (ms): [1088.183, 1078.827, 1091.319]; median: 1088.183
+Limit  (cost=183752276.13..183752276.38 rows=100 width=116) (actual time=1085.949..1091.785 rows=27 loops=1)
+  Buffers: shared hit=13055, temp read=8845 written=8859
+  ->  Sort  (cost=183752276.13..183752276.63 rows=200 width=116) (actual time=818.583..824.417 rows=27 loops=1)
+        Sort Key: (COALESCE(sum(ot.revenue), '0'::numeric)) DESC, c.customer_state
+        Sort Method: quicksort  Memory: 26kB
+        Buffers: shared hit=13055, temp read=8845 written=8859
+        ->  Finalize GroupAggregate  (cost=183752236.98..183752268.48 rows=200 width=116) (actual time=818.504..824.394 rows=27 loops=1)
+              Group Key: c.customer_state
+              Buffers: shared hit=13055, temp read=8845 written=8859
+              ->  Gather Merge  (cost=183752236.98..183752259.98 rows=200 width=116) (actual time=818.468..824.317 rows=38 loops=1)
+                    Workers Planned: 1
+                    Workers Launched: 1
+                    Buffers: shared hit=13055, temp read=8845 written=8859
+                    ->  Sort  (cost=183751236.97..183751237.47 rows=200 width=116) (actual time=758.040..758.047 rows=19 loops=2)
+                          Sort Key: c.customer_state
+                          Sort Method: quicksort  Memory: 31kB
+                          Buffers: shared hit=13055, temp read=8845 written=8859
+                          Worker 0:  Sort Method: quicksort  Memory: 27kB
+                          ->  Partial HashAggregate  (cost=183751225.83..183751229.33 rows=200 width=116) (actual time=758.016..758.029 rows=19 loops=2)
+                                Group Key: c.customer_state
+                                Batches: 1  Memory Usage: 64kB
+                                Buffers: shared hit=13047, temp read=8845 written=8859
+                                Worker 0:  Batches: 1  Memory Usage: 48kB
+                                ->  Hash Join  (cost=78747.81..876030.64 rows=12191679679 width=108) (actual time=651.460..747.774 rows=48239 loops=2)
+                                      Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (ot.order_id)::text)
+                                      Buffers: shared hit=13047, temp read=8845 written=8859
+                                      ->  Hash Left Join  (cost=51686.34..60257.01 rows=27643338 width=77) (actual time=373.420..439.475 rows=48239 loops=2)
+                                            Hash Cond: (((NULLIF(btrim((orders.order_id)::text), ''::text))::character varying(32))::text = (reviews.order_id)::text)
+                                            Buffers: shared hit=8253, temp read=5538 written=5548
+                                            ->  Hash Join  (cost=28102.18..33784.31 rows=56485 width=45) (actual time=191.482..229.841 rows=48239 loops=2)
+                                                  Hash Cond: (((NULLIF(btrim((orders.customer_id)::text), ''::text))::character varying(32))::text = (c.customer_id)::text)
+                                                  Buffers: shared hit=4615, temp read=3386 written=3392
+                                                  ->  Parallel Seq Scan on orders  (cost=0.00..2738.66 rows=56485 width=66) (actual time=0.022..9.981 rows=48239 loops=2)
+                                                        Filter: ((order_status = 'delivered'::raw.order_status_enum) AND (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL))
+                                                        Rows Removed by Filter: 1482
+                                                        Buffers: shared hit=1715
+                                                  ->  Hash  (cost=25415.38..25415.38 rows=98944 width=94) (actual time=191.425..191.426 rows=99441 loops=2)
+                                                        Buckets: 65536  Batches: 2  Memory Usage: 3818kB
+                                                        Buffers: shared hit=2900, temp read=2200 written=2884
+                                                        ->  Subquery Scan on c  (cost=23931.22..25415.38 rows=98944 width=94) (actual time=143.999..179.295 rows=99441 loops=2)
+                                                              Buffers: shared hit=2900, temp read=2200 written=2206
+                                                              ->  Unique  (cost=23931.22..24425.94 rows=98944 width=208) (actual time=143.985..173.135 rows=99441 loops=2)
+                                                                    Buffers: shared hit=2900, temp read=2200 written=2206
+                                                                    ->  Sort  (cost=23931.22..24178.58 rows=98944 width=208) (actual time=143.984..165.040 rows=99441 loops=2)
+                                                                          Sort Key: ((NULLIF(btrim((customers.customer_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((customers.customer_unique_id)::text), ''::text))::character varying(32)), ((NULLIF(btrim((customers.customer_city)::text), ''::text))::character varying), ((NULLIF(btrim((customers.customer_state)::text), ''::text))::character varying(2))
+                                                                          Sort Method: external merge  Disk: 8800kB
+                                                                          Buffers: shared hit=2900, temp read=2200 written=2206
+                                                                          Worker 0:  Sort Method: external merge  Disk: 8800kB
+                                                                          ->  Seq Scan on customers  (cost=0.00..5911.18 rows=98944 width=208) (actual time=0.020..60.683 rows=99441 loops=2)
+                                                                                Filter: ((NULLIF(btrim((customer_id)::text), ''::text))::character varying(32) IS NOT NULL)
+                                                                                Buffers: shared hit=2900
+                                            ->  Hash  (cost=20639.69..20639.69 rows=97878 width=114) (actual time=181.887..181.888 rows=98673 loops=2)
+                                                  Buckets: 65536  Batches: 2  Memory Usage: 3882kB
+                                                  Buffers: shared hit=3638, temp read=1120 written=1822
+                                                  ->  Subquery Scan on reviews  (cost=16962.89..20639.69 rows=97878 width=114) (actual time=114.962..169.521 rows=98673 loops=2)
+                                                        Buffers: shared hit=3638, temp read=1120 written=1124
+                                                        ->  GroupAggregate  (cost=16962.89..19660.91 rows=97878 width=114) (actual time=114.960..164.428 rows=98673 loops=2)
+                                                              Group Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                              Buffers: shared hit=3638, temp read=1120 written=1124
+                                                              ->  Sort  (cost=16962.89..17209.71 rows=98728 width=84) (actual time=114.941..133.862 rows=99224 loops=2)
+                                                                    Sort Key: ((NULLIF(btrim((order_reviews.order_id)::text), ''::text))::character varying(32))
+                                                                    Sort Method: external merge  Disk: 4480kB
+                                                                    Buffers: shared hit=3638, temp read=1120 written=1124
+                                                                    Worker 0:  Sort Method: external merge  Disk: 4480kB
+                                                                    ->  Seq Scan on order_reviews  (cost=0.00..4047.82 rows=98728 width=84) (actual time=0.019..32.914 rows=99224 loops=2)
+                                                                          Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                          Buffers: shared hit=3638
+                                      ->  Hash  (cost=24062.88..24062.88 rows=88207 width=146) (actual time=277.939..277.940 rows=98666 loops=2)
+                                            Buckets: 65536  Batches: 4  Memory Usage: 2390kB
+                                            Buffers: shared hit=4794, temp read=1558 written=2762
+                                            ->  Subquery Scan on ot  (cost=20075.28..24062.88 rows=88207 width=146) (actual time=203.282..264.210 rows=98666 loops=2)
+                                                  Buffers: shared hit=4794, temp read=1558 written=1562
+                                                  ->  GroupAggregate  (cost=20075.28..23180.81 rows=88207 width=146) (actual time=203.280..259.054 rows=98666 loops=2)
+                                                        Group Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                        Buffers: shared hit=4794, temp read=1558 written=1562
+                                                        ->  Sort  (cost=20075.28..20355.50 rows=112087 width=94) (actual time=203.255..214.195 rows=112650 loops=2)
+                                                              Sort Key: ((NULLIF(btrim((order_items.order_id)::text), ''::text))::character varying(32))
+                                                              Sort Method: external merge  Disk: 6232kB
+                                                              Buffers: shared hit=4794, temp read=1558 written=1562
+                                                              Worker 0:  Sort Method: external merge  Disk: 6232kB
+                                                              ->  Seq Scan on order_items  (cost=0.00..4927.40 rows=112087 width=94) (actual time=143.118..182.306 rows=112650 loops=2)
+                                                                    Filter: (NULLIF(btrim((order_id)::text), ''::text) IS NOT NULL)
+                                                                    Buffers: shared hit=4794
+Planning Time: 0.354 ms
+JIT:
+  Functions: 110
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 3.858 ms, Inlining 55.002 ms, Optimization 288.124 ms, Emission 210.678 ms, Total 557.662 ms
+Execution Time: 1096.227 ms
+
+Point lookup / defaults
+Order ID: 00010242fe8c5a6d1ba2dd792cb16214
+Index Scan using idx_order_items_order_id on order_items  (cost=0.42..8.44 rows=1 width=127) (actual time=0.005..0.005 rows=1 loops=1)
+  Index Cond: ((order_id)::text = '00010242fe8c5a6d1ba2dd792cb16214'::text)
+  Buffers: shared hit=4
+Planning Time: 0.019 ms
+Execution Time: 0.009 ms
+
+Point lookup / index_scans_disabled
+Order ID: 00010242fe8c5a6d1ba2dd792cb16214
+Seq Scan on order_items  (cost=0.00..3805.12 rows=1 width=127) (actual time=0.002..4.416 rows=1 loops=1)
+  Filter: ((order_id)::text = '00010242fe8c5a6d1ba2dd792cb16214'::text)
+  Rows Removed by Filter: 112649
+  Buffers: shared hit=2397
+Planning Time: 0.015 ms
+Execution Time: 4.419 ms
