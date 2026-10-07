@@ -1,0 +1,408 @@
+{
+  "scan_created_at": "2026-10-07T14:59:02.941536958Z",
+  "scanner": "Trivy 0.75.0",
+  "vulnerability_database_updated_at": "2026-10-07T07:38:55.515026687Z",
+  "image_id": "sha256:11f41c2fcc8147cbc9f33a12ae1c8ae00aeda7e6ff3c41090528261de2a15683",
+  "os": {
+    "Family": "debian",
+    "Name": "13.7"
+  },
+  "build_inputs_sha256": {
+    "Dockerfile": "51209de5f098d5ec68508b83f33631a3478c7d243b6b60307b73fc9f99925191",
+    "pyproject.toml": "336d6597c0d9015c9c68c147822f31ac9dbdcaf80c7debfa357eb01a27db8c80",
+    "uv.lock": "7e6d98d68d686553a02a48d627a5abb8b9ff6f963466f2252cfefc2c1b3f7d01",
+    "app/__init__.py": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "app/core/__init__.py": "765f75963224c2070403ea62f197469c59fe7e4f3440b48b9cf8d994ff47213a",
+    "app/core/config.py": "9dcca4bdb16aac475d4e3146504d59992ba38c3160d84827f7d32be2575cc364",
+    "app/core/database.py": "090147713340501a844b79c6c2b0d64e6aa4e0d13252c8cc151d51192d1137d7",
+    "app/etl/__init__.py": "0386729f20d8b9151e59c82be20667a1b23baf6d7e3eeda6fbda93de3ebe727c",
+    "app/etl/config.py": "14a62988bfdf5b88ef49d4e7739bff671faf54ece1cd679f2ad48e4e1e8b3811",
+    "app/etl/extract.py": "c6c9e927075114a9c24fd83e41c586e3498e138dafe498546bfd5d6c33a85f5d",
+    "app/etl/load.py": "baf6dd23b12391cce97784d9bb2e2f34068e9fffcc79f04df57a21d5011c33e5",
+    "app/etl/pipeline.py": "2ad31c7d83b0df02fd36de4e2f4fe01b84876c6c5ef70124e19f330b42cc8309",
+    "app/etl/transform.py": "3d9535089306af07810cf954677e88cddabbeb87285273241b248389ee282127",
+    "app/etl/validators.py": "04ce7900c424c744b936cd3d4aa69e1e7a0cf7726fed2e48285d41d955574113",
+    "app/main.py": "940f2c8f28c12a60e89187607856bf3259ce327980e1cba931811054e6b33780",
+    "app/db/indexes.sql": "c976ebe144404556d6f7441264d3f4cb2bd130531821074b71344a73587cd3c0",
+    "app/db/schema.sql": "9a5baac3b53599185313c9342e1afa93c8690fa4a14d8a753a26b1d18e262a38",
+    "dbt/logs/query_log.sql": "e3e707ad8434ad02a2caeaa4e498fd079f0daf867a09c29c5257a3f5b9e86ffa",
+    "dbt/macros/data_tests.sql": "d9d20d47afbf9fe21329f996f1440bc86946945678e39c9640b21f6bf1c63a3e",
+    "dbt/macros/generate_schema_name.sql": "db832a57aa9d0aad029bcb7926814b31590f3b5db21355ac6926d9892f41b15a",
+    "dbt/models/gold/dim_customers.sql": "847f1c01612ea9fb4ee0cea8b4625ae54a6467b172a8fc5f6383f335b07bd14d",
+    "dbt/models/gold/dim_products.sql": "38351aa81961d54e93ef0acae7c686b50976df32ef764a2dc648aae706bf1e6d",
+    "dbt/models/gold/dim_sellers.sql": "8253d7cb55e62d72b6671fdccc7b6fa5ac5d850c459c092e1b7f7193008ab7cd",
+    "dbt/models/gold/fact_order_items.sql": "552f8eb63641cb6c09cf4c1918514a6bb2a5a19c8ca757d2849d8eed1f46b52c",
+    "dbt/models/gold/fact_orders.sql": "d1764c29ac58eac4211d14612d68c8a6a5317ebde99f1a8796f8dbd626998af7",
+    "dbt/models/gold/mart_category_performance.sql": "4481469b35569e7459557344e66066a03fbf2389a6280e2cefdd870dc03e328b",
+    "dbt/models/gold/mart_geography_sales.sql": "ecc9494fb5797632bedd579e0155695016831e7178688730a8555a5632230904",
+    "dbt/models/gold/mart_seller_performance.sql": "68bba32a3c36d9b061977da0326859b16cc33ee299ffc5f26f656ea02acd4bf9",
+    "dbt/models/silver/category_translation.sql": "31d64e8d5e34a54a2561a012c32fbef11e549777587eebf5d5357a5a01b92f09",
+    "dbt/models/silver/order_item_summary.sql": "2a4a6191a5c297ee300c6c941a62570ce74abf8ba96fbe367ced8ecd638023e2",
+    "dbt/models/silver/order_items.sql": "b5aa35478a232d0ef90d3b1b003c759c64b9c6092e46d4ab948817a159ad1757",
+    "dbt/models/silver/order_payment_summary.sql": "ed4bee6a02784d6ab11e10874b2424c2731f434069a3fdf3a999e3f32d6ef956",
+    "dbt/models/silver/order_review_summary.sql": "92229652fdab671f31fecfbcbc4a2add2948db47d7e0be7fa5df5a7ae295f8f3",
+    "dbt/models/silver/orders.sql": "81c289652ca6a27e4eb1bd5004db77ca321e36cde1d3315d91780e6f0ed67c44",
+    "dbt/tests/reconcile_source_revenue.sql": "51542811d045c741321432caa131ee723745531b9677b57680af76511973d28b",
+    "dbt/dbt_project.yml": "7680f6ed78dddf71adb884666d8942d6d8c0257ed0d07f6e59bfc26dea1235ee",
+    "dbt/models/gold/schema.yml": "9f0737f86a9a76db436f6321f7f4209ac6ac48fca39795c7203b1b786b9229b4",
+    "dbt/models/silver/schema.yml": "1721cff9ebe4cc39e4a2f5c1b547bc25dd3c4788caa1b5e9ab161cbf410e08a1",
+    "dbt/models/sources.yml": "bf877662b2e3270f8e4a89669d915e6f0ecb35ac72e12e2152241a6798014ebc",
+    "dbt/profiles.yml": "9740b29458a09f29101962614faf84a1c625f432bb14084fc07916d3db466020",
+    ".dockerignore": "eee5eefc9c711ced844d4b3b360ed0ee0a72ffeb99aad256664875a90c437dfc"
+  },
+  "report_sha256": "6a68ffc0b80423841070b9ee22a47bc09bcd037782663ff04aa52ac34d1a5707",
+  "severity_counts": {
+    "CRITICAL": 0,
+    "HIGH": 44,
+    "MEDIUM": 58,
+    "LOW": 82,
+    "UNKNOWN": 2
+  },
+  "distinct_ids_per_severity": {
+    "CRITICAL": 0,
+    "HIGH": 8,
+    "MEDIUM": 29,
+    "LOW": 42,
+    "UNKNOWN": 2
+  },
+  "fixable_findings": 0,
+  "targets": [
+    {
+      "target": "/scan/final-image.tar (debian 13.7)",
+      "type": "debian",
+      "findings": 186
+    },
+    {
+      "target": "Python",
+      "type": "python-pkg",
+      "findings": 0
+    },
+    {
+      "target": "usr/local/bin/uv",
+      "type": "rustbinary",
+      "findings": 0
+    }
+  ],
+  "high_severity_findings": {
+    "CVE-2026-76642": {
+      "severity": "HIGH",
+      "title": "util-linux: util-linux: failed external mount helper still runs privileged X-mount post-hooks",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-76642",
+      "packages": [
+        {
+          "name": "bsdutils",
+          "installed_version": "1:2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libblkid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "liblastlog2-2",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libmount1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libsmartcols1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libuuid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "login",
+          "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "mount",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "util-linux",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2026-78408": {
+      "severity": "HIGH",
+      "title": "util-linux: util-linux: nsenter --join-cgroup leaks root cgroup migration authority",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-78408",
+      "packages": [
+        {
+          "name": "bsdutils",
+          "installed_version": "1:2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libblkid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "liblastlog2-2",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libmount1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libsmartcols1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libuuid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "login",
+          "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "mount",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "util-linux",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2026-78409": {
+      "severity": "HIGH",
+      "title": "util-linux: util-linux: X-mount.subdir detached-tree resolution can escape via intermediate symlinks",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-78409",
+      "packages": [
+        {
+          "name": "bsdutils",
+          "installed_version": "1:2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libblkid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "liblastlog2-2",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libmount1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libsmartcols1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libuuid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "login",
+          "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "mount",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "util-linux",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2026-78410": {
+      "severity": "HIGH",
+      "title": "util-linux: util-linux: restricted bind mounts do not pin the source, allowing X-mount.owner/group/mode redirection",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-78410",
+      "packages": [
+        {
+          "name": "bsdutils",
+          "installed_version": "1:2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libblkid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "liblastlog2-2",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libmount1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libsmartcols1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libuuid1",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "login",
+          "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "mount",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "util-linux",
+          "installed_version": "2.41.5-0+deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2026-54369": {
+      "severity": "HIGH",
+      "title": "acl: Symlink traversal privilege escalation via libacl functions",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-54369",
+      "packages": [
+        {
+          "name": "libacl1",
+          "installed_version": "2.3.2-2+b1",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2025-69720": {
+      "severity": "HIGH",
+      "title": "ncurses: ncurses: Buffer overflow vulnerability may lead to arbitrary code execution.",
+      "source": "https://avd.aquasec.com/nvd/cve-2025-69720",
+      "packages": [
+        {
+          "name": "libncursesw6",
+          "installed_version": "6.5+20250216-2",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libtinfo6",
+          "installed_version": "6.5+20250216-2",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "ncurses-base",
+          "installed_version": "6.5+20250216-2",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "ncurses-bin",
+          "installed_version": "6.5+20250216-2",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2026-16742": {
+      "severity": "HIGH",
+      "title": "systemd: systemd-homed: Local privilege escalation via missing home-record signature verification",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-16742",
+      "packages": [
+        {
+          "name": "libsystemd0",
+          "installed_version": "257.13-1~deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        },
+        {
+          "name": "libudev1",
+          "installed_version": "257.13-1~deb13u1",
+          "fixed_version": null,
+          "status": "affected"
+        }
+      ]
+    },
+    "CVE-2026-9538": {
+      "severity": "HIGH",
+      "title": "perl-Archive-Tar: perl-Archive-Tar: Denial of Service via crafted tar header with large entry size",
+      "source": "https://avd.aquasec.com/nvd/cve-2026-9538",
+      "packages": [
+        {
+          "name": "perl-base",
+          "installed_version": "5.40.1-6+deb13u1",
+          "fixed_version": null,
+          "status": "fix_deferred"
+        }
+      ]
+    }
+  }
+}
